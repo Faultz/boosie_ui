@@ -449,11 +449,11 @@ bool menu::item_add(GRect rect, int id)
 
 	if (g.navInitRequest && g.activeId != id)
 	{
+		g.navInitRequest = false;
 		g.navResults.menuId = id;
 		g.navResults.navRect = rect;
-		window.rectRel = rect;
 		navResultRect = rect;
-		g.navInitRequest = false;
+		window.rectRel = rect;
 	}
 	
 	if (!rect.overlaps(GRect(g.currentWindow->clipRect)))
