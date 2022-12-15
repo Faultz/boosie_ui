@@ -1,0 +1,111 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="stdafx.cpp" />
+    <ClCompile Include="core\prx.cpp" />
+    <ClCompile Include="core\renderer\render.cpp">
+      <Filter>core\renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="util\color.cpp">
+      <Filter>util</Filter>
+    </ClCompile>
+    <ClCompile Include="util\scheduler.cpp">
+      <Filter>util</Filter>
+    </ClCompile>
+    <ClCompile Include="core\game\functions.cpp">
+      <Filter>core\game</Filter>
+    </ClCompile>
+    <ClCompile Include="util\animation.cpp">
+      <Filter>util</Filter>
+    </ClCompile>
+    <ClCompile Include="core\renderer\logging.cpp">
+      <Filter>core\renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="util\navigation.cpp">
+      <Filter>util</Filter>
+    </ClCompile>
+    <ClCompile Include="core\renderer\engine.cpp">
+      <Filter>core\renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="core\menu\menu.cpp">
+      <Filter>core\menu</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="stdafx.h" />
+    <ClInclude Include="core\game\globals.h">
+      <Filter>core\game</Filter>
+    </ClInclude>
+    <ClInclude Include="core\renderer\render.h">
+      <Filter>core\renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="util\color.h">
+      <Filter>util</Filter>
+    </ClInclude>
+    <ClInclude Include="util\scheduler.h">
+      <Filter>util</Filter>
+    </ClInclude>
+    <ClInclude Include="core\game\functions.h">
+      <Filter>core\game</Filter>
+    </ClInclude>
+    <ClInclude Include="core\game\structures\struct.h">
+      <Filter>core\game\structures</Filter>
+    </ClInclude>
+    <ClInclude Include="util\std_util.h">
+      <Filter>util\std</Filter>
+    </ClInclude>
+    <ClInclude Include="util\animation.h">
+      <Filter>util</Filter>
+    </ClInclude>
+    <ClInclude Include="util\easing.h">
+      <Filter>util</Filter>
+    </ClInclude>
+    <ClInclude Include="core\renderer\logging.h">
+      <Filter>core\renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="util\navigation.h">
+      <Filter>util</Filter>
+    </ClInclude>
+    <ClInclude Include="core\renderer\engine.h">
+      <Filter>core\renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="core\menu\menu.h">
+      <Filter>core\menu</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="core">
+      <UniqueIdentifier>{dd189bc6-1ff2-4df1-8088-73205a07a894}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="util">
+      <UniqueIdentifier>{8370ef7f-dd16-4416-98d7-c104a14985f7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="core\game">
+      <UniqueIdentifier>{3659d31c-554c-4ff3-af71-c24bdb33cedb}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="core\renderer">
+      <UniqueIdentifier>{4e4d92fb-08ad-4736-8d7f-dd690f390cb3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="core\components">
+      <UniqueIdentifier>{6a0d0822-d597-46aa-9c82-ae12124fef94}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="core\game\structures">
+      <UniqueIdentifier>{b621105f-ed8b-4a66-bdc9-ef5f765dc0b3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="core\menu">
+      <UniqueIdentifier>{c869dca8-4419-4d3a-a500-4d2fd886bfe5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="core\components\aimbot">
+      <UniqueIdentifier>{fc1e56b9-54df-41d4-96f5-e747ab1fb306}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="core\components\esp">
+      <UniqueIdentifier>{c9c9a134-598f-4790-903e-5a1119966356}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="core\components\antiaim">
+      <UniqueIdentifier>{56891721-a70c-42ed-9ff5-bd45bf261296}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="util\std">
+      <UniqueIdentifier>{fc80429b-cb7b-41e7-abdf-b92a3113a31b}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>
