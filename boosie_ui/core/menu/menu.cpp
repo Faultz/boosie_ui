@@ -398,8 +398,6 @@ bool menu::begin_tab_item(const char* name)
 {
 	menu_context& g = *gMenuCtx;
 
-	auto id = get_id(fmt_str("%s#tab_item", name));
-
 	menu_window* window = g.currentWindow;
 	if (!window)
 		return false;
@@ -407,6 +405,8 @@ bool menu::begin_tab_item(const char* name)
 	auto current_tab = g.currentTabBar;
 	if (!current_tab)
 		return false;
+
+	auto id = get_id(fmt_str("%i#tab_item", name));
 
 	auto current_tab_item = current_tab->tabItems[id];
 	if (!current_tab_item)
@@ -421,8 +421,6 @@ bool menu::begin_tab_item(const char* name)
 
 	if (current_tab->activeTabId == id && current_tab->currentTabItem == current_tab_item)
 	{
-		printf("using tab item %s\n", name);
-
 		return true;
 	}
 
@@ -448,6 +446,15 @@ bool menu::item_add(GRect rect, int id)
 	g.lastItemData.ID = id;
 	g.lastItemData.Rect = rect;
 	g.lastItemData.rectRel = navBounds;
+
+	if (g.navInitRequest && g.activeId != id)
+	{
+		g.navResults.menuId = id;
+		g.navResults.navRect = rect;
+		window.rectRel = rect;
+		navResultRect = rect;
+		g.navInitRequest = false;
+	}
 	
 	if (!rect.overlaps(GRect(g.currentWindow->clipRect)))
 		return false;

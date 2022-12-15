@@ -215,7 +215,7 @@ public:
 		isActive = false;
 		hasNavRequest = false;
 		navRequest = false;
-		navInitRequest = false;
+		navInitRequest = true;
 		moveNavDir = NAV_DIR_NONE;
 		moveNavDirLast = NAV_DIR_NONE;
 		lastItemData = menu_last_item_data();
