@@ -27,7 +27,7 @@ extern "C"
 	int boosie_ui_entry(void)
 	{
 		globals::gameWhite = Material_RegisterHandle("white", 7);
-		globals::fontNormal = R_RegisterFont("fonts/normalFont", 7);
+		globals::fontNormal = R_RegisterFont("fonts/bigFont", 7);
 		globals::clr_white = GColor(255, 255, 255, 255);
 		globals::globalAlpha = 0.f;
 		globals::game_snprintf = { 0x027E2F8 };

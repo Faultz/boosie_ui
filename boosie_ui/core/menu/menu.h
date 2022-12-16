@@ -128,13 +128,18 @@ public:
 		isSameLine = false;
 		Pos = vec2_t();
 		cursorPos = vec2_t();
-		cursorPosLast = vec2_t();
+		cursorPosPrevLine = vec2_t();
 		cursorStartPos = vec2_t();
 		cursorMaxPos = vec2_t();
-		cursorMaxScale = vec2_t();
+		cursorPrevMove = vec2_t();
+		currLineSize = vec2_t();
+		prevLineSize = vec2_t();
+		windowPadding = vec2_t();
 		scrollPos = vec2_t();
-		moveSpacing = vec2_t();
-		contentSize = vec2_t();
+		scrollTarget = vec2_t(FLT_MAX, FLT_MAX);
+		indentSize = 0.0f;
+		currLineTextBaseOffset = 0.0f;
+		prevLineTextBaseOffset = 0.0f;
 		clipRect = GRect();
 		rectRel = GRect();
 		itemFlags = 0;
@@ -159,13 +164,19 @@ public:
 	bool isSameLine;
 	vec2_t Pos;
 	vec2_t cursorPos;
-	vec2_t cursorPosLast;
+	vec2_t cursorPosPrevLine;
 	vec2_t cursorStartPos;
 	vec2_t cursorMaxPos;
-	vec2_t cursorMaxScale;
-	vec2_t scrollPos;
-	vec2_t moveSpacing;
+	vec2_t cursorPrevMove;
+	vec2_t currLineSize;
+	vec2_t prevLineSize;
+	vec2_t windowPadding;
 	vec2_t contentSize;
+	vec2_t scrollPos;
+	vec2_t scrollTarget;
+	float currLineTextBaseOffset;
+	float prevLineTextBaseOffset;
+	float indentSize;
 	GRect clipRect;
 	GRect rectRel;
 	int itemFlags;
@@ -184,6 +195,8 @@ public:
 	{
 		borderSpacing = vec2_t(8.0f, 8.0f);
 		itemSpacing = vec2_t(5.0f, 5.0f);
+		itemInnerSpacing = vec2_t(4.0f, 4.0f);
+		framePadding = vec2_t(4.0f, 5.0f);
 		colors[COL_BACKGROUND] = color(35, 35, 35, 255);
 		colors[COL_ITEM_BACKGROUND] = color(103, 99, 220, 255);
 		colors[COL_ITEM_ACTIVE] = color(129, 126, 226, 255);
@@ -195,6 +208,8 @@ public:
 
 	vec2_t borderSpacing;
 	vec2_t itemSpacing;
+	vec2_t itemInnerSpacing;
+	vec2_t framePadding;
 	color colors[COL_MAX];
 };
 
@@ -206,6 +221,7 @@ public:
 		open = false;
 		activeId = 0;
 		activeIdLast = 0;
+		lastId = 0;
 		currentWindow = nullptr;
 		currentTabBar = nullptr;
 		rect = GRect();
@@ -222,6 +238,7 @@ public:
 		navResults = menu_nav_results();
 		style = menu_style();
 		colModifiers = vector<menu_col_mod>();
+		idStack = vector<menu_id>();
 		windowMap = map<menu_id, menu_window*>();
 	}
 	~menu_context()
@@ -238,6 +255,7 @@ public:
 	bool open;
 	menu_id activeId;
 	menu_id activeIdLast;
+	menu_id lastId;
 	menu_window* currentWindow;
 	menu_tab_bar* currentTabBar;
 	GRect rect;
@@ -255,6 +273,7 @@ public:
 	GRect navScoringRect;
 	menu_style style;
 	vector<menu_col_mod> colModifiers;
+	vector<menu_id> idStack;
 	map<menu_id, menu_window*> windowMap;
 
 	void createNavRequest(menu_nav_dir navDir) 
@@ -286,10 +305,24 @@ namespace menu
 	void create_context();
 	void destroy_context();
 
+	bool is_down(int id, float repeat = 0.0f);
+	bool is_pressed(int id);
+	bool is_released(int id);
+
+	inline GBounds window_rect_rel_to_abs(menu_window* window, const GBounds& r) { vec2_t off = window->cursorStartPos; return GBounds(r.Min.x - off.x, r.Min.y - off.y, r.Max.x - off.x, r.Max.y - off.y); }
+
 	void set_window_pos(vec2_t pos);
 	void set_window_size(vec2_t size);
 	void set_window_pos(float x, float y);
 	void set_window_size(float w, float h);
+
+	vec2_t calc_next_scroll_and_clamp(menu_window* window);
+
+	void calc_content_size(menu_window* window, vec2_t* content_size, vec2_t* content_size_ideal);
+	void set_scroll_from_y(menu_window* window, float local_y, float center_y_ratio);
+	vec2_t scroll_to_rect(menu_window* window, const GBounds& item_rect);
+
+	menu_window* create_window(int id);
 
 	void set_window_scroll_y(menu_window* window, float scroll);
 
@@ -322,16 +355,14 @@ namespace menu
 		analog->analogLeft.x = static_cast<double>(m_LeftX) / 128.0f;
 		analog->analogLeft.y = static_cast<double>(m_LeftY) / 128.0f;
 	}
-	vec2_t calc_content_size(menu_window* window);
 
 	void begin(const char* name);
 	void end();
 
 	void set_active_id(int id);
 	bool item_add(GRect rect, int id);
-	void item_size(vec2_t size);
-	void same_line(float x_spacing = 0.f, float y_spacing = 0.f);
-	void reset_line();
+	void item_size(vec2_t size, float text_baseline_y = -1.0f);
+	void same_line(float offset_from_start_x = 0.0f, float spacing_w = -1.0f);
 
 	void push_style_color(int idx, GColor color);
 	void pop_style_color(int count = 1);
@@ -341,6 +372,10 @@ namespace menu
 
 	void push_font_scale(float scale, float scale_y = 0.0f);
 	void pop_font_scale();
+
+	void push_id(const char* name);
+	void push_id(int int_id);
+	void pop_id();
 
 	vec2_t calc_item_size(vec2_t size, float default_w, float default_h);
 
@@ -385,6 +420,8 @@ namespace menu
 
 		return false;
 	}
+	bool slider(const char* label, const char* fmt, float* values, int count, float inc, float min, float max);
+	bool slider(const char* label, const char* fmt, int* values, int count, int inc, int min, int max);
 
 	bool sliderf(const char* label, float* value, float inc, float min, float max, vec2_t b_size = vec2_t());
 	bool sliderf2(const char* label, float* values, float inc, float min, float max, vec2_t b_size = vec2_t());
@@ -396,10 +433,6 @@ namespace menu
 	bool slideru4(const char* label, int* values, int inc, int min, int max, vec2_t b_size = vec2_t());
 
 	void end_frame();
-
-	bool is_down(int id, float repeat = 0.0f);
-	bool is_pressed(int id);
-	bool is_released(int id);
 
 	void update();
 

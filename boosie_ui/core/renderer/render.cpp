@@ -24,6 +24,9 @@ void render::add_text(std::string text, GRect rect, int style, int align, float 
 	float m_iAdjustedX = 0.f;
 	float m_iAdjustedY = 0.f;
 
+	xScale /= 1.1f;
+	yScale /= 1.1f;
+
 	float textWidth, textHeight;
 	read_text_size(text, textWidth, textHeight, xScale, yScale);
 
@@ -177,10 +180,12 @@ void render::read_text_size(std::string text, float& width, float& height, float
 
 float render::get_text_width(std::string text, float xScale)
 {
+	xScale /= 1.1f;
 	return R_TextWidth(text.data(), text.length(), globals::fontNormal) * xScale;
 }
 
 float render::get_text_height(std::string text, float yScale)
 {
+	yScale /= 1.1f;
 	return globals::fontNormal->pixelHeight * yScale;
 }

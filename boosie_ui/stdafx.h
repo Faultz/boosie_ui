@@ -204,7 +204,7 @@ struct vector
 	inline T* erase(const T* it) { IM_ASSERT(it >= Data && it < Data + Size); const ptrdiff_t off = it - Data; memmove(Data + off, Data + off + 1, ((size_t)Size - (size_t)off - 1) * sizeof(T)); Size--; return Data + off; }
 	inline T* erase(const T* it, const T* it_last) { IM_ASSERT(it >= Data && it < Data + Size && it_last >= it && it_last <= Data + Size); const ptrdiff_t count = it_last - it; const ptrdiff_t off = it - Data; memmove(Data + off, Data + off + count, ((size_t)Size - (size_t)off - (size_t)count) * sizeof(T)); Size -= (int)count; return Data + off; }
 	inline T* erase_unsorted(const T* it) { IM_ASSERT(it >= Data && it < Data + Size);  const ptrdiff_t off = it - Data; if (it < Data + Size - 1) memcpy(Data + off, Data + Size - 1, sizeof(T)); Size--; return Data + off; }
-	inline T* insert(const T* it, const T& v) { IM_ASSERT(it >= Data && it <= Data + Size); const ptrdiff_t off = it - Data; if (Size == Capacity) reserve(_grow_capacity(Size + 1)); if (off < (int)Size) memmove(Data + off + 1, Data + off, ((size_t)Size - (size_t)off) * sizeof(T)); memcpy(&Data[off], &v, sizeof(v)); Size++; return Data + off; }
+	inline T* insert(const T* it, const T& v) { const ptrdiff_t off = it - Data; if (Size == Capacity) reserve(_grow_capacity(Size + 1)); if (off < (int)Size) memmove(Data + off + 1, Data + off, ((size_t)Size - (size_t)off) * sizeof(T)); memcpy(&Data[off], &v, sizeof(v)); Size++; return Data + off; }
 	inline bool         contains(const T& v) const { const T* data = Data;  const T* data_end = Data + Size; while (data < data_end) if (*data++ == v) return true; return false; }
 	inline T* find(const T& v) { T* data = Data;  const T* data_end = Data + Size; while (data < data_end) if (*data == v) break; else ++data; return data; }
 	inline const T* find(const T& v) const { const T* data = Data;  const T* data_end = Data + Size; while (data < data_end) if (*data == v) break; else ++data; return data; }
@@ -293,6 +293,39 @@ public:
 	}
 
 	value_list Data;
+};
+struct menu_storage
+{
+	// [Internal]
+	struct menu_storage_pair
+	{
+		int key;
+		union { int val_i; float val_f; void* val_p; };
+		menu_storage_pair(int _key, int _val_i) { key = _key; val_i = _val_i; }
+		menu_storage_pair(int _key, float _val_f) { key = _key; val_f = _val_f; }
+		menu_storage_pair(int _key, void* _val_p) { key = _key; val_p = _val_p; }
+	};
+
+	vector<menu_storage_pair> Data;
+
+	void Clear() { Data.clear(); }
+	int GetInt(int key, int default_val = 0) const;
+	void SetInt(int key, int val);
+	bool GetBool(int key, bool default_val = false) const;
+	void SetBool(int key, bool val);
+	float GetFloat(int key, float default_val = 0.0f) const;
+	void SetFloat(int key, float val);
+	void* GetVoidPtr(int key) const; // default_val is NULL
+	void SetVoidPtr(int key, void* val);
+
+	int* GetIntRef(int key, int default_val = 0);
+	bool* GetBoolRef(int key, bool default_val = false);
+	float* GetFloatRef(int key, float default_val = 0.0f);
+	void** GetVoidPtrRef(int key, void* default_val = NULL);
+
+	void SetAllInt(int val);
+
+	void BuildSortByKey();
 };
 
 struct timer
