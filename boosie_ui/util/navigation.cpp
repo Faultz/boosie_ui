@@ -41,6 +41,13 @@ float navigation::is_down(int key, float repeat_rate)
 	return (float)calc_repeat_amount(t, t - (1.f / 60.f), 0.f, repeat_rate) ? true : false;
 }
 
+float navigation::held_time(int key)
+{
+	const float t = nav_inputs_duration[key];
+
+	return t;
+}
+
 bool navigation::is_pressed(int key)
 {
 	const float t = nav_inputs_duration[key];

@@ -7,6 +7,12 @@ enum {
 	DIGITAL2 = CELL_PAD_BTN_OFFSET_DIGITAL2
 };
 
+enum menu_data_type
+{
+	DATA_TYPE_FLOAT,
+	DATA_TYPE_INT
+};
+
 enum menu_colors
 {
 	COL_BACKGROUND,
@@ -137,7 +143,10 @@ public:
 		windowPadding = vec2_t();
 		scrollPos = vec2_t();
 		scrollTarget = vec2_t(FLT_MAX, FLT_MAX);
+		Size = vec2_t();
+		sizeFull = vec2_t();
 		indentSize = 0.0f;
+		maxWidth = 0.0f;
 		currLineTextBaseOffset = 0.0f;
 		prevLineTextBaseOffset = 0.0f;
 		innerClipRect = GRect();
@@ -174,9 +183,12 @@ public:
 	vec2_t contentSize;
 	vec2_t scrollPos;
 	vec2_t scrollTarget;
+	vec2_t Size;
+	vec2_t sizeFull;
 	float currLineTextBaseOffset;
 	float prevLineTextBaseOffset;
 	float indentSize;
+	float maxWidth;
 	GRect innerClipRect;
 	GRect rectRel;
 	int itemFlags;
@@ -221,13 +233,15 @@ public:
 		open = false;
 		activeId = 0;
 		activeIdLast = 0;
+		activeIdJustActivated = false;
 		lastId = 0;
 		currentWindow = nullptr;
 		currentTabBar = nullptr;
-		rect = GRect();
 		deltaTime = 0.0f;
 		time = 0.0f;
 		frameCount = 0;
+		sliderCurrentAccum = 0.0f;
+		sliderCurrentAccumDirty = false;
 		isActive = false;
 		hasNavRequest = false;
 		navRequest = false;
@@ -255,13 +269,15 @@ public:
 	bool open;
 	menu_id activeId;
 	menu_id activeIdLast;
+	bool activeIdJustActivated;
 	menu_id lastId;
 	menu_window* currentWindow;
 	menu_tab_bar* currentTabBar;
-	GRect rect;
 	float deltaTime;
 	float time;
 	int frameCount;
+	float sliderCurrentAccum;
+	bool sliderCurrentAccumDirty;
 	bool isActive;
 	bool hasNavRequest;
 	bool navRequest;
@@ -313,8 +329,8 @@ namespace menu
 
 	void set_window_pos(vec2_t pos);
 	void set_window_size(vec2_t size);
-	void set_window_pos(float x, float y);
-	void set_window_size(float w, float h);
+	void set_window_pos(menu_window* window, float x, float y);
+	void set_window_size(menu_window* window, float w, float h);
 
 	vec2_t calc_next_scroll_and_clamp(menu_window* window);
 
@@ -329,6 +345,7 @@ namespace menu
 	void new_frame();
 
 	menu_id get_id(const char* label);
+	void set_active_id(menu_id id);
 
 	menu_window* get_current_window();
 	static void read_analog_input(analog_input_t* analog)
@@ -383,45 +400,15 @@ namespace menu
 	bool checkbox(const char* label, bool* value, vec2_t b_size = vec2_t());
 	void text(const char* label, ...);
 
+	bool slider_behaviour(void* value, int data_type, const char* format, const void* min, const void* max);
+
 	bool begin_tab_bar(const char* name);
 	void end_tab_bar();
 
 	bool begin_tab_item(const char* name);
 	void end_tab_item();
 
-	template<typename T> bool slider_behaviour(T& value, T inc, T min, T max)
-	{
-		menu_context& g = *gMenuCtx;
-
-		if (!g.isActive)
-			return false;
-
-		if (g_nav.is_pressed(NAV_BACK))
-			g.isActive = false;
-
-		if (g_nav.is_down(NAV_DPAD_LEFT, 0.04f))
-		{
-			if (value <= min)
-				value = min;
-			else
-				value -= inc;
-
-			return true;
-		}
-		else if (g_nav.is_down(NAV_DPAD_RIGHT, 0.04f))
-		{
-			if (value >= max)
-				value = max;
-			else
-				value += inc;
-
-			return true;
-		}
-
-		return false;
-	}
-	bool slider(const char* label, const char* fmt, float* values, int count, float inc, float min, float max);
-	bool slider(const char* label, const char* fmt, int* values, int count, int inc, int min, int max);
+	template<typename T = float> bool slider(const char* label, const char* fmt, T* values, int count, int data_type, T min, T max);
 
 	bool sliderf(const char* label, float* value, float inc, float min, float max, vec2_t b_size = vec2_t());
 	bool sliderf2(const char* label, float* values, float inc, float min, float max, vec2_t b_size = vec2_t());

@@ -6,6 +6,229 @@ GRect navScoringRect, navResultRect;
 
 draw_list* menu::overlay_drawlist;
 
+static inline float  saturate(float f) { return (f < 0.0f) ? 0.0f : (f > 1.0f) ? 1.0f : f; }
+
+const char* parseFormatFindStart(const char* fmt)
+{
+	while (char c = fmt[0])
+	{
+		if (c == '%' && fmt[1] != '%')
+			return fmt;
+		else if (c == '%')
+			fmt++;
+		fmt++;
+	}
+	return fmt;
+}
+
+const char* parseFormatFindEnd(const char* fmt)
+{
+	if (fmt[0] != '%')
+		return fmt;
+	const unsigned int ignored_uppercase_mask = (1 << ('I' - 'A')) | (1 << ('L' - 'A'));
+	const unsigned int ignored_lowercase_mask = (1 << ('h' - 'a')) | (1 << ('j' - 'a')) | (1 << ('l' - 'a')) | (1 << ('t' - 'a')) | (1 << ('w' - 'a')) | (1 << ('z' - 'a'));
+	for (char c; (c = *fmt) != 0; fmt++)
+	{
+		if (c >= 'A' && c <= 'Z' && ((1 << (c - 'A')) & ignored_uppercase_mask) == 0)
+			return fmt + 1;
+		if (c >= 'a' && c <= 'z' && ((1 << (c - 'a')) & ignored_lowercase_mask) == 0)
+			return fmt + 1;
+	}
+	return fmt;
+}
+
+void parseFormatSanitizeForPrinting(const char* fmt_in, char* fmt_out, size_t fmt_out_size)
+{
+	const char* fmt_end = parseFormatFindEnd(fmt_in);
+	while (fmt_in < fmt_end)
+	{
+		char c = *fmt_in++;
+		if (c != '\'' && c != '$' && c != '_')
+			*(fmt_out++) = c;
+	}
+	*fmt_out = 0;
+}
+
+template<typename TYPE>
+TYPE roundScalarWithFormatT(const char* format, int data_type, TYPE v)
+{
+	const char* fmt_start = parseFormatFindStart(format);
+	if (fmt_start[0] != '%' || fmt_start[1] == '%')
+		return v;
+
+	char fmt_sanitized[32];
+	parseFormatSanitizeForPrinting(fmt_start, fmt_sanitized, IM_ARRAYSIZE(fmt_sanitized));
+	fmt_start = fmt_sanitized;
+
+	char v_str[64];
+	snprintf(v_str, (size_t)64, fmt_start, v);
+	const char* p = v_str;
+	while (*p == ' ')
+		p++;
+	v = (TYPE)std::atof(p);
+
+	return v;
+}
+
+template<typename TYPE>
+static const char* Atoi(const char* src, TYPE* output)
+{
+	int negative = 0;
+	if (*src == '-') { negative = 1; src++; }
+	if (*src == '+') { src++; }
+	TYPE v = 0;
+	while (*src >= '0' && *src <= '9')
+		v = (v * 10) + (*src++ - '0');
+	*output = negative ? -v : v;
+	return src;
+}
+
+
+int parseFormatPrecision(const char* fmt, int default_precision)
+{
+	fmt = parseFormatFindStart(fmt);
+	if (fmt[0] != '%')
+		return default_precision;
+	fmt++;
+	while (*fmt >= '0' && *fmt <= '9')
+		fmt++;
+	int precision = INT_MAX;
+	if (*fmt == '.')
+	{
+		fmt = Atoi<int>(fmt + 1, &precision);
+		if (precision < 0 || precision > 99)
+			precision = default_precision;
+	}
+	if (*fmt == 'e' || *fmt == 'E') // Maximum precision with scientific notation
+		precision = -1;
+	if ((*fmt == 'g' || *fmt == 'G') && precision == INT_MAX)
+		precision = -1;
+	return (precision == INT_MAX) ? default_precision : precision;
+}
+
+// Convert a value v in the output space of a slider into a parametric position on the slider itself (the logical opposite of ScaleValueFromRatioT)
+template<typename TYPE, typename SIGNEDTYPE, typename FLOATTYPE>
+float scaleRatioFromValueT(int data_type, TYPE v, TYPE v_min, TYPE v_max, bool is_logarithmic, float logarithmic_zero_epsilon, float zero_deadzone_halfsize)
+{
+	if (v_min == v_max)
+		return 0.0f;
+
+	const TYPE v_clamped = (v_min < v_max) ? clamp(v, v_min, v_max) : clamp(v, v_max, v_min);
+	if (is_logarithmic)
+	{
+		bool flipped = v_max < v_min;
+
+		if (flipped) // Handle the case where the range is backwards
+			std::swap(v_min, v_max);
+
+		// Fudge min/max to avoid getting close to log(0)
+		FLOATTYPE v_min_fudged = (fabsf((FLOATTYPE)v_min) < logarithmic_zero_epsilon) ? ((v_min < 0.0f) ? -logarithmic_zero_epsilon : logarithmic_zero_epsilon) : (FLOATTYPE)v_min;
+		FLOATTYPE v_max_fudged = (fabsf((FLOATTYPE)v_max) < logarithmic_zero_epsilon) ? ((v_max < 0.0f) ? -logarithmic_zero_epsilon : logarithmic_zero_epsilon) : (FLOATTYPE)v_max;
+
+		// Awkward special cases - we need ranges of the form (-100 .. 0) to convert to (-100 .. -epsilon), not (-100 .. epsilon)
+		if ((v_min == 0.0f) && (v_max < 0.0f))
+			v_min_fudged = -logarithmic_zero_epsilon;
+		else if ((v_max == 0.0f) && (v_min < 0.0f))
+			v_max_fudged = -logarithmic_zero_epsilon;
+
+		float result;
+		if (v_clamped <= v_min_fudged)
+			result = 0.0f; // Workaround for values that are in-range but below our fudge
+		else if (v_clamped >= v_max_fudged)
+			result = 1.0f; // Workaround for values that are in-range but above our fudge
+		else if ((v_min * v_max) < 0.0f) // Range crosses zero, so split into two portions
+		{
+			float zero_point_center = (-(float)v_min) / ((float)v_max - (float)v_min); // The zero point in parametric space.  There's an argument we should take the logarithmic nature into account when calculating this, but for now this should do (and the most common case of a symmetrical range works fine)
+			float zero_point_snap_L = zero_point_center - zero_deadzone_halfsize;
+			float zero_point_snap_R = zero_point_center + zero_deadzone_halfsize;
+			if (v == 0.0f)
+				result = zero_point_center; // Special case for exactly zero
+			else if (v < 0.0f)
+				result = (1.0f - (float)(logf(-(FLOATTYPE)v_clamped / logarithmic_zero_epsilon) / logf(-v_min_fudged / logarithmic_zero_epsilon))) * zero_point_snap_L;
+			else
+				result = zero_point_snap_R + ((float)(logf((FLOATTYPE)v_clamped / logarithmic_zero_epsilon) / logf(v_max_fudged / logarithmic_zero_epsilon)) * (1.0f - zero_point_snap_R));
+		}
+		else if ((v_min < 0.0f) || (v_max < 0.0f)) // Entirely negative slider
+			result = 1.0f - (float)(logf(-(FLOATTYPE)v_clamped / -v_max_fudged) / logf(-v_min_fudged / -v_max_fudged));
+		else
+			result = (float)(logf((FLOATTYPE)v_clamped / v_min_fudged) / logf(v_max_fudged / v_min_fudged));
+
+		return flipped ? (1.0f - result) : result;
+	}
+	else
+	{
+		// Linear slider
+		return (float)((FLOATTYPE)(SIGNEDTYPE)(v_clamped - v_min) / (FLOATTYPE)(SIGNEDTYPE)(v_max - v_min));
+	}
+}
+
+// Convert a parametric position on a slider into a value v in the output space (the logical opposite of ScaleRatioFromValueT)
+template<typename TYPE, typename SIGNEDTYPE, typename FLOATTYPE>
+TYPE scaleValueFromRatioT(int data_type, float t, TYPE v_min, TYPE v_max, bool is_logarithmic, float logarithmic_zero_epsilon, float zero_deadzone_halfsize)
+{
+	// We special-case the extents because otherwise our logarithmic fudging can lead to "mathematically correct"
+	// but non-intuitive behaviors like a fully-left slider not actually reaching the minimum value. Also generally simpler.
+	if (t <= 0.0f || v_min == v_max)
+		return v_min;
+	if (t >= 1.0f)
+		return v_max;
+
+	TYPE result = (TYPE)0;
+	if (is_logarithmic)
+	{
+		// Fudge min/max to avoid getting silly results close to zero
+		FLOATTYPE v_min_fudged = (fabsf((FLOATTYPE)v_min) < logarithmic_zero_epsilon) ? ((v_min < 0.0f) ? -logarithmic_zero_epsilon : logarithmic_zero_epsilon) : (FLOATTYPE)v_min;
+		FLOATTYPE v_max_fudged = (fabsf((FLOATTYPE)v_max) < logarithmic_zero_epsilon) ? ((v_max < 0.0f) ? -logarithmic_zero_epsilon : logarithmic_zero_epsilon) : (FLOATTYPE)v_max;
+
+		const bool flipped = v_max < v_min; // Check if range is "backwards"
+		if (flipped)
+			std::swap(v_min_fudged, v_max_fudged);
+
+		// Awkward special case - we need ranges of the form (-100 .. 0) to convert to (-100 .. -epsilon), not (-100 .. epsilon)
+		if ((v_max == 0.0f) && (v_min < 0.0f))
+			v_max_fudged = -logarithmic_zero_epsilon;
+
+		float t_with_flip = flipped ? (1.0f - t) : t; // t, but flipped if necessary to account for us flipping the range
+
+		if ((v_min * v_max) < 0.0f) // Range crosses zero, so we have to do this in two parts
+		{
+			float zero_point_center = (-(float)std::min(v_min, v_max)) / fabsf((float)v_max - (float)v_min); // The zero point in parametric space
+			float zero_point_snap_L = zero_point_center - zero_deadzone_halfsize;
+			float zero_point_snap_R = zero_point_center + zero_deadzone_halfsize;
+			if (t_with_flip >= zero_point_snap_L && t_with_flip <= zero_point_snap_R)
+				result = (TYPE)0.0f; // Special case to make getting exactly zero possible (the epsilon prevents it otherwise)
+			else if (t_with_flip < zero_point_center)
+				result = (TYPE)-(logarithmic_zero_epsilon * powf(-v_min_fudged / logarithmic_zero_epsilon, (FLOATTYPE)(1.0f - (t_with_flip / zero_point_snap_L))));
+			else
+				result = (TYPE)(logarithmic_zero_epsilon * powf(v_max_fudged / logarithmic_zero_epsilon, (FLOATTYPE)((t_with_flip - zero_point_snap_R) / (1.0f - zero_point_snap_R))));
+		}
+		else if ((v_min < 0.0f) || (v_max < 0.0f)) // Entirely negative slider
+			result = (TYPE)-(-v_max_fudged * powf(-v_min_fudged / -v_max_fudged, (FLOATTYPE)(1.0f - t_with_flip)));
+		else
+			result = (TYPE)(v_min_fudged * powf(v_max_fudged / v_min_fudged, (FLOATTYPE)t_with_flip));
+	}
+	else
+	{
+		// Linear slider
+		const bool is_floating_point = (data_type == DATA_TYPE_FLOAT) || (data_type == DATA_TYPE_FLOAT);
+		if (is_floating_point)
+		{
+			result = easing::lerp<TYPE>(v_min, v_max, t);
+		}
+		else if (t < 1.0)
+		{
+			// - For integer values we want the clicking position to match the grab box so we round above
+			//   This code is carefully tuned to work with large values (e.g. high ranges of U64) while preserving this property..
+			// - Not doing a *1.0 multiply at the end of a range as it tends to be lossy. While absolute aiming at a large s64/u64
+			//   range is going to be imprecise anyway, with this check we at least make the edge values matches expected limits.
+			FLOATTYPE v_new_off_f = (SIGNEDTYPE)(v_max - v_min) * t;
+			result = (TYPE)((SIGNEDTYPE)v_min + (SIGNEDTYPE)(v_new_off_f + (FLOATTYPE)(v_min > v_max ? -0.5 : 0.5)));
+		}
+	}
+
+	return result;
+}
+
 static menu_nav_dir navScoreItemQuadrant(float dx, float dy)
 {
 	if (fabsf(dx) > fabsf(dy))
@@ -158,30 +381,29 @@ void menu::destroy_context()
 
 void menu::set_window_pos(vec2_t pos)
 {
-	menu_context& g = *gMenuCtx;
-	g.rect.x = pos.x;
-	g.rect.y = pos.y;
+	menu_window& window = *get_current_window();
+	window.Pos.x = pos.x;
+	window.Pos.y = pos.y;
 }
 
 void menu::set_window_size(vec2_t size)
 {
-	menu_context& g = *gMenuCtx;
-	g.rect.w = size.x;
-	g.rect.h = size.y;
+	menu_window& window = *get_current_window();
+	window.Size.x = size.x;
+	window.Size.y = size.y;
 }
 
-void menu::set_window_pos(float x, float y)
+void menu::set_window_pos(menu_window* window, float x, float y)
 {
-	menu_context& g = *gMenuCtx;
-	g.rect.x = x;
-	g.rect.y = y;
+	window->Pos.x = x;
+	window->Pos.y = y;
 }
 
-void menu::set_window_size(float w, float h)
+void menu::set_window_size(menu_window* window, float w, float h)
 {
-	menu_context& g = *gMenuCtx;
-	g.rect.w = w;
-	g.rect.h = h;
+	window->Size.x = w;
+	window->Size.y = h;
+	window->sizeFull = vec2_t(w, h);
 }
 
 vec2_t menu::calc_next_scroll_and_clamp(menu_window* window)
@@ -230,14 +452,13 @@ menu_window* menu::create_window(int id)
 
 	const int headerHeight = 20 * ASPECT_RATIO;
 
-	GRect window_rect(GRect(g.rect.x, g.rect.y + headerHeight, g.rect.w, g.rect.h - headerHeight));
-
 	g.windowMap[id] = new menu_window();
 	auto* created_window = g.windowMap[id];
+
+	set_window_pos(created_window, 350, 200);
+	set_window_size(created_window, 450, 750);
 	
-	created_window->Pos = vec2_t(window_rect.x, window_rect.y);
 	created_window->windowPadding = vec2_t(7.0f, 7.0f);
-	created_window->innerClipRect = GRect(g.rect.x, g.rect.y, g.rect.w, g.rect.h);
 	created_window->itemFlags = ITEM_FLAG_NONE;
 	created_window->globalFontScale = 0.5f;
 	created_window->globalFontScaleY = 0.5f;
@@ -329,6 +550,14 @@ menu_id menu::get_id(const char* label)
 	return g.idStack.empty() ? hash(label) : g.idStack.back();
 }
 
+void menu::set_active_id(menu_id id)
+{
+	menu_context& g = *gMenuCtx;
+
+	g.activeIdJustActivated = (g.activeIdJustActivated != id);
+	g.activeId = id;
+}
+
 menu_window* menu::get_current_window()
 {
 	menu_context& g = *gMenuCtx; return g.currentWindow;
@@ -343,7 +572,6 @@ void menu::begin(const char* label)
 
 	const int headerHeight = 20 * ASPECT_RATIO;
 
-	GRect clip_rect(GRect(g.rect.x, g.rect.y + headerHeight, g.rect.w, g.rect.h - headerHeight));
 
 	menu_window* window = g.windowMap[id]; 
 	if (!window)
@@ -354,9 +582,12 @@ void menu::begin(const char* label)
 	if (!window)
 		return;
 
+	GRect clip_rect(window->Pos.x, window->Pos.y + headerHeight, window->Size.x, window->Size.y - headerHeight);
+
 	window->indentSize = 0.0f + window->windowPadding.x;
 
-	window->cursorStartPos = vec2_t(window->Pos.x + window->windowPadding.x - window->scrollPos.x, window->Pos.y + window->windowPadding.y - window->scrollPos.y);
+	window->innerClipRect = GRect(window->Pos.x, window->Pos.y + headerHeight, window->Size.x, window->Size.y);
+	window->cursorStartPos = vec2_t(window->Pos.x + window->windowPadding.x - window->scrollPos.x, window->Pos.y + headerHeight + window->windowPadding.y - window->scrollPos.y);
 	window->cursorPos = window->cursorStartPos;
 	window->cursorPosPrevLine = window->cursorPos;
 	window->cursorMaxPos = window->cursorStartPos;
@@ -371,8 +602,8 @@ void menu::begin(const char* label)
 		navScoringRect.y = window.rectRel.y;
 	}
 
-	GRect header_rect(g.rect.x, g.rect.y, g.rect.w, headerHeight);
-	GRect headertext_rect(g.rect.x + window->windowPadding.x, g.rect.y, g.rect.w - 10.f, headerHeight);
+	GRect header_rect(window->Pos.x, window->Pos.y, window->Size.x, headerHeight);
+	GRect headertext_rect(window->Pos.x + window->windowPadding.x, window->Pos.y, window->Size.x - 10.f, headerHeight);
 
 	g.currentWindow = window;
 
@@ -389,8 +620,12 @@ void menu::end()
 	menu_context& g = *gMenuCtx;
 	menu_window& window = *g.currentWindow;
 
-	window.cursorMaxPos.x = window.cursorPos.x;
-	window.cursorMaxPos.y = window.cursorPos.y + 50.0f;
+	if (window.contentSize.x > window.sizeFull.x)
+		window.Size.x = window.contentSize.x + 10.0f;
+	else
+		window.Size.x = window.sizeFull.x;
+	//window.cursorMaxPos.x = window.cursorPos.x;
+	window.cursorMaxPos.y += 50.0f;
 
 	//render::add_filled_rect(GRect(window.cursorMaxPos.x, window.cursorMaxPos.y, 300, 3), g.style.colors[COL_ITEM_BACKGROUND]);
 
@@ -425,7 +660,7 @@ bool menu::begin_tab_bar(const char* name)
 	for (int i = 0; i < current_tab->tabItems.size(); i++)
 	{
 		if(i > 0)
-			same_line(0, g.style.framePadding.x);
+			same_line();
 
 		auto tab_item = current_tab->tabItems.find_by_index(i);
 
@@ -594,6 +829,9 @@ void menu::same_line(float offset_from_start_x, float spacing_w)
 		window->cursorPos.y = window->cursorPosPrevLine.y;
 	}
 
+	if (window->maxWidth < (window->cursorPos.x - window->cursorStartPos.x))
+		window->maxWidth = (window->cursorPos.x - window->cursorStartPos.x);
+
 	window->currLineSize = window->prevLineSize;
 	window->currLineTextBaseOffset = window->prevLineTextBaseOffset;
 	window->isSameLine = true;
@@ -718,7 +956,7 @@ bool menu::button(const char* label, vec2_t b_size)
 
 	const bool active = g.activeId == id;
 
-	vec2_t size = b_size == vec2_t() ? calc_item_size(vec2_t(), render::get_text_width(label, fontScale) + 10, height + 15) : b_size;
+	vec2_t size = b_size == vec2_t() ? calc_item_size(vec2_t(), render::get_text_width(label, fontScale) + 10 + (g.style.framePadding.x * 2.0f), height + 15 + (g.style.framePadding.y * 2.0f)) : b_size;
 
 	GRect rect(window.cursorPos.x, window.cursorPos.y, size.x, size.y);
 
@@ -791,11 +1029,9 @@ void menu::text(const char* label, ...)
 	vsnprintf(buffer, 512, label, args);
 	va_end(args);
 
-	std::string str = fmt_str(label);
-
 	const int height = render::get_text_height(buffer, fontScale) * ASPECT_RATIO;
 
-	vec2_t size = vec2_t(render::get_text_width(buffer, fontScale) + 4.f, height);
+	vec2_t size = vec2_t(render::get_text_width(buffer, fontScale) + 4.f, height + style.framePadding.y * 2.0f);
 
 	GRect rect(window.cursorPos.x, window.cursorPos.y, size.x, size.y);
 
@@ -805,7 +1041,125 @@ void menu::text(const char* label, ...)
 	render::add_text(buffer, rect, 1, vert_center | horz_left, fontScale, fontScale * ASPECT_RATIO, style.colors[COL_TEXT]);
 }
 
-bool menu::slider(const char* label, const char* fmt, float* values, int count, float inc, float min, float max)
+
+template<typename TYPE, typename SIGNEDTYPE, typename FLOATTYPE>
+bool sliderBehaviorT(int data_type, TYPE* v, const TYPE v_min, const TYPE v_max, const char* format)
+{
+	menu_context& g = *gMenuCtx;
+
+	bool value_changed = false;
+	const bool is_floating_point = data_type == DATA_TYPE_FLOAT;
+	const SIGNEDTYPE v_range = (v_min < v_max ? v_max - v_min : v_min - v_max);
+
+
+	bool set_new_value = false;
+	float clicked_t = 0.0f;
+
+	if (g.activeIdJustActivated)
+	{
+		g.sliderCurrentAccum = 0.0f; // Reset any stored nav delta upon activation
+		g.sliderCurrentAccumDirty = false;
+	}
+
+	float input_delta = g_nav.is_down(NAV_DPAD_RIGHT) - g_nav.is_down(NAV_DPAD_LEFT);
+	if (input_delta != 0.0f)
+	{
+		const bool tweak_slow = true;
+		const int decimal_precision = is_floating_point ? parseFormatPrecision(format, 3) : 0;
+		if (decimal_precision > 0)
+		{
+			input_delta /= 100.0f;    // Gamepad/keyboard tweak speeds in % of slider bounds
+			if (tweak_slow)
+				input_delta /= 10.0f;
+		}
+		else
+		{
+			if ((v_range >= -100.0f && v_range <= 100.0f) || tweak_slow)
+				input_delta = ((input_delta < 0.0f) ? -1.0f : +1.0f) / (float)v_range; // Gamepad/keyboard tweak speeds in integer steps
+			else
+				input_delta /= 100.0f;
+		}
+
+		if(data_type == DATA_TYPE_FLOAT)
+			input_delta *= 20.0f;
+
+
+		g.sliderCurrentAccum += input_delta;
+		g.sliderCurrentAccumDirty = true;
+	}
+
+	float delta = g.sliderCurrentAccum;
+	if (g.sliderCurrentAccumDirty)
+	{
+		clicked_t = scaleRatioFromValueT<TYPE, SIGNEDTYPE, FLOATTYPE>(data_type, *v, v_min, v_max, false, 0.0f, 0.0f);
+		if ((clicked_t >= 1.0f && delta > 0.0f) || (clicked_t <= 0.0f && delta < 0.0f)) // This is to avoid applying the saturation when already past the limits
+		{
+			set_new_value = false;
+			g.sliderCurrentAccum = 0.0f; // If pushing up against the limits, don't continue to accumulate
+		}
+		else
+		{
+			set_new_value = true;
+			float old_clicked_t = clicked_t;
+			clicked_t = saturate(clicked_t + delta);
+
+			// Calculate what our "new" clicked_t will be, and thus how far we actually moved the slider, and subtract this from the accumulator
+			TYPE v_new = scaleValueFromRatioT<TYPE, SIGNEDTYPE, FLOATTYPE>(data_type, clicked_t, v_min, v_max, false, 0.0f, 0.0f);
+			if (is_floating_point)
+				v_new = roundScalarWithFormatT<TYPE>(format, data_type, v_new);
+			float new_clicked_t = scaleRatioFromValueT<TYPE, SIGNEDTYPE, FLOATTYPE>(data_type, v_new, v_min, v_max, false, 0.0f, 0.0f);
+
+			if (delta > 0)
+				g.sliderCurrentAccum -= std::min(new_clicked_t - old_clicked_t, delta);
+			else
+				g.sliderCurrentAccum -= std::max(new_clicked_t - old_clicked_t, delta);
+		}
+
+		g.sliderCurrentAccum = false;
+	}
+
+	if (set_new_value)
+	{
+		TYPE v_new = scaleValueFromRatioT<TYPE, SIGNEDTYPE, FLOATTYPE>(data_type, clicked_t, v_min, v_max, false, 0.0f, 0.0f);
+
+		// Round to user desired precision based on format string
+		if (is_floating_point)
+			v_new = roundScalarWithFormatT<TYPE>(format, data_type, v_new);
+
+		// Apply result
+		if (*v != v_new)
+		{
+			*v = v_new;
+			value_changed = true;
+		}
+	}
+
+	return value_changed;
+}
+
+bool menu::slider_behaviour(void* value, int data_type, const char* format, const void* min, const void* max)
+{
+	menu_context& g = *gMenuCtx;
+	menu_style& style = g.style;
+	menu_window& window = *g.currentWindow;
+
+	if (!g.isActive)
+		return false;
+
+	if (g_nav.is_pressed(NAV_BACK))
+		g.isActive = false;
+
+	switch (data_type)
+	{
+	case DATA_TYPE_FLOAT:
+		return sliderBehaviorT<float, float, float>(data_type, (float*)value, *(const float*)min, *(const float*)max, format);
+	case DATA_TYPE_INT:
+		return sliderBehaviorT<int, int, float>(data_type, (int*)value, *(const int*)min, *(const int*)max, format);
+	}
+}
+
+template<typename T>
+bool menu::slider(const char* label, const char* fmt, T* values, int count, int data_type, T min, T max)
 {
 	menu_context& g = *gMenuCtx;
 	menu_style& style = g.style;
@@ -822,17 +1176,17 @@ bool menu::slider(const char* label, const char* fmt, float* values, int count, 
 	for (int i = 0; i < count; i++)
 	{
 		if (i > 0)
-			same_line(0, style.framePadding.x);
+			same_line(0, style.itemInnerSpacing.x);
 
-		size = calc_item_size(vec2_t(), 360 / count, height + 10);
+		size = calc_item_size(vec2_t(), (360 / count) + (g.style.framePadding.x * 2.0f), (height + 10) + (g.style.framePadding.y * 2.0f));
 
 		auto id = get_id(fmt_str("%s_%i", label, i));
-		const char* str = fmt_str("%.2f/%.2f", values[i], max);
+		const char* str = fmt_str(fmt, values[i], max);
 
 		const bool active = g.activeId == id;
 
 		GRect rect(window.cursorPos.x, window.cursorPos.y, size.x, size.y);
-		GRect rect_calc(window.cursorPos.x, window.cursorPos.y, (((values[i] - min) / (max - min)) * size.x), size.y);
+		GRect rect_calc(window.cursorPos.x, window.cursorPos.y, ((((float)values[i] - (float)min) / ((float)max - (float)min)) * size.x), size.y);
 
 		item_size(vec2_t(size.x, size.y));
 		if (!item_add(rect, id))
@@ -841,9 +1195,11 @@ bool menu::slider(const char* label, const char* fmt, float* values, int count, 
 		if (active)
 		{
 			if (is_down(NAV_ACTIVATE, 1.f))
+			{
 				g.isActive = true;
-
-			modified = slider_behaviour(values[i], inc, min, max);
+				g.activeIdJustActivated = true;
+			}
+			modified = slider_behaviour((void*)&values[i], data_type, fmt, (const void*)&min, (const void*)&max);
 		}
 
 		render::add_filled_rect(rect, style.colors[COL_ITEM_BACKGROUND]);
@@ -853,12 +1209,7 @@ bool menu::slider(const char* label, const char* fmt, float* values, int count, 
 		render::add_text(str, rect, 1, vert_center | horz_center, fontScale, fontScale * ASPECT_RATIO, style.colors[COL_TEXT]);
 	}
 
-	return false;
-}
-
-bool menu::slider(const char* label, const char* fmt, int* values, int count, int inc, int min, int max)
-{
-	return false;
+	return modified;
 }
 
 bool menu::sliderf(const char* label, float* value, float inc, float min, float max, vec2_t b_size)
@@ -866,10 +1217,14 @@ bool menu::sliderf(const char* label, float* value, float inc, float min, float 
 	menu_context& g = *gMenuCtx;
 	menu_window& window = *g.currentWindow;
 
+	bool edited = slider(label, "%.2f/%.2f", value, 1, DATA_TYPE_FLOAT, min, max);
+
+	same_line();
+
 	if (!(window.itemFlags & ITEM_FLAG_SLIDER_NO_TEXT))
 		text(label);
 
-	return slider(label, "%.2f/%.2f", value, 1, inc, min, max);
+	return edited;
 }
 
 bool menu::sliderf2(const char* label, float* values, float inc, float min, float max, vec2_t b_size)
@@ -877,10 +1232,14 @@ bool menu::sliderf2(const char* label, float* values, float inc, float min, floa
 	menu_context& g = *gMenuCtx;
 	menu_window& window = *g.currentWindow;
 
+	bool edited = slider(label, "%.2f/%.2f", values, 2, DATA_TYPE_FLOAT, min, max);
+
+	same_line();
+
 	if (!(window.itemFlags & ITEM_FLAG_SLIDER_NO_TEXT))
 		text(label);
 
-	return slider(label, "%.2f/%.2f", values, 2, inc, min, max);
+	return edited;
 }
 
 bool menu::sliderf3(const char* label, float* values, float inc, float min, float max, vec2_t b_size)
@@ -888,10 +1247,14 @@ bool menu::sliderf3(const char* label, float* values, float inc, float min, floa
 	menu_context& g = *gMenuCtx;
 	menu_window& window = *g.currentWindow;
 
+	bool edited = slider(label, "%.2f/%.2f", values, 3, DATA_TYPE_FLOAT, min, max);
+
+	same_line();
+
 	if (!(window.itemFlags & ITEM_FLAG_SLIDER_NO_TEXT))
 		text(label);
 
-	return slider(label, "%.2f/%.2f", values, 3, inc, min, max);
+	return edited;
 }
 
 bool menu::sliderf4(const char* label, float* values, float inc, float min, float max, vec2_t b_size)
@@ -899,10 +1262,14 @@ bool menu::sliderf4(const char* label, float* values, float inc, float min, floa
 	menu_context& g = *gMenuCtx;
 	menu_window& window = *g.currentWindow;
 
+	bool edited = slider(label, "%.2f/%.2f", values, 4, DATA_TYPE_FLOAT, min, max);
+
+	same_line();
+
 	if (!(window.itemFlags & ITEM_FLAG_SLIDER_NO_TEXT))
 		text(label);
 
-	return slider(label, "%.2f/%.2f", values, 4, inc, min, max);
+	return edited;
 }
 
 bool menu::slideru(const char* label, int* value, int inc, int min, int max, vec2_t b_size)
@@ -910,10 +1277,14 @@ bool menu::slideru(const char* label, int* value, int inc, int min, int max, vec
 	menu_context& g = *gMenuCtx;
 	menu_window& window = *g.currentWindow;
 
+	bool edited = slider(label, "%u/%u", value, 1, DATA_TYPE_INT, min, max);
+
+	same_line();
+
 	if (!(window.itemFlags & ITEM_FLAG_SLIDER_NO_TEXT))
 		text(label);
 
-	return slider(label, "%i/%i", value, 1, inc, min, max);
+	return edited;
 }
 
 
@@ -922,10 +1293,14 @@ bool menu::slideru2(const char* label, int* values, int inc, int min, int max, v
 	menu_context& g = *gMenuCtx;
 	menu_window& window = *g.currentWindow;
 
+	bool edited = slider(label, "%u/%u", values, 2, DATA_TYPE_INT, min, max);
+
+	same_line();
+
 	if (!(window.itemFlags & ITEM_FLAG_SLIDER_NO_TEXT))
 		text(label);
 
-	return slider(label, "%i/%i", values, 2, inc, min, max);
+	return edited;
 }
 
 bool menu::slideru3(const char* label, int* values, int inc, int min, int max, vec2_t b_size)
@@ -933,10 +1308,14 @@ bool menu::slideru3(const char* label, int* values, int inc, int min, int max, v
 	menu_context& g = *gMenuCtx;
 	menu_window& window = *g.currentWindow;
 
+	bool edited = slider(label, "%u/%u", values, 3, DATA_TYPE_INT, min, max);
+
+	same_line();
+
 	if (!(window.itemFlags & ITEM_FLAG_SLIDER_NO_TEXT))
 		text(label);
 
-	return slider(label, "%i/%i", values, 3, inc, min, max);
+	return edited;
 }
 
 bool menu::slideru4(const char* label, int* values, int inc, int min, int max, vec2_t b_size)
@@ -944,10 +1323,14 @@ bool menu::slideru4(const char* label, int* values, int inc, int min, int max, v
 	menu_context& g = *gMenuCtx;
 	menu_window& window = *g.currentWindow;
 
+	bool edited = slider(label, "%u/%u", values, 4, DATA_TYPE_INT, min, max);
+
+	same_line();
+
 	if (!(window.itemFlags & ITEM_FLAG_SLIDER_NO_TEXT))
 		text(label);
 
-	return slider(label, "%i/%i", values, 4, inc, min, max);
+	return edited;
 }
 
 
@@ -1016,14 +1399,19 @@ void menu::update(void* arg)
 	pop_style_color();
 	text("g.navRequest: %i", g.navRequest);
 
-	text("g.rect(%.1f, %.1f, %.1f, %.1f)", g.rect.x, g.rect.y, g.rect.w, g.rect.h);
-	text("window.windowPos(%.1f, %.1f)", window.Pos.x, window.Pos.y);
-	text("window.itemSpacing(%.1f, %.1f)", style.itemSpacing.x, style.itemSpacing.y);
+	text("window.Pos(%.1f, %.1f)", window.Pos.x, window.Pos.y);
+	text("window.Size(%.1f, %.1f)", window.Size.x, window.Size.y);
+	text("g.style.itemSpacing(%.1f, %.1f)", style.itemSpacing.x, style.itemSpacing.y);
+	text("g.style.framePadding(%.1f, %.1f)", style.framePadding.x, style.framePadding.y);
 
 	sliderf2("itemSpacing", style.itemSpacing, 0.5f, 0.0, 15.0f);
+	sliderf2("framePadding", style.framePadding, 0.5f, 0.0, 15.0f);
 
 	static float val3[2];
 	sliderf2("slider 3", val3, 1.0f, 0.0f, 1000.0f);
+
+	static int i_size;
+	slideru("label", &i_size, 0, 0, 100);
 
 	static float val;
 	sliderf("slider 1", &val, 1.0f, 0.0f, 100.0f);
@@ -1087,9 +1475,6 @@ void menu::update(void* arg)
 void menu::start()
 {
 	create_context();
-
-	set_window_pos(350, 200);
-	set_window_size(450, 750);
 
 	scheduler::schedule(update, 0u, scheduler::render);
 

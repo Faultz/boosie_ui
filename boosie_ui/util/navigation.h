@@ -43,6 +43,7 @@ class navigation
 {
 public:
 	float is_down(int key, float repeat_rate = 0.f);
+	float held_time(int key);
 	bool is_pressed(int key);
 	bool is_released(int key);
 

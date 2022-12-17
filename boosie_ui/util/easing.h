@@ -7,7 +7,8 @@ namespace easing
         return (1.f / 0.2f) * (1.f / 60.f) * scale;
     }
 
-    inline float lerp(float start, float end, float t)
+    template<typename T>
+    inline float lerp(T start, T end, float t)
     {
         return start + ((end - start) * t);
     }
