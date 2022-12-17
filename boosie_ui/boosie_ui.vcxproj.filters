@@ -30,7 +30,7 @@
     <ClCompile Include="core\menu\menu.cpp">
       <Filter>core\menu</Filter>
     </ClCompile>
-    <ClCompile Include="draw_list.cpp">
+    <ClCompile Include="core\renderer\draw\draw_list.cpp">
       <Filter>core\renderer\draw</Filter>
     </ClCompile>
   </ItemGroup>
@@ -75,7 +75,7 @@
     <ClInclude Include="core\menu\menu.h">
       <Filter>core\menu</Filter>
     </ClInclude>
-    <ClInclude Include="draw_list.h">
+    <ClInclude Include="core\renderer\draw\draw_list.h">
       <Filter>core\renderer\draw</Filter>
     </ClInclude>
   </ItemGroup>

@@ -89,7 +89,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="core\menu\menu.h" />
-    <ClInclude Include="draw_list.h" />
+    <ClInclude Include="core\renderer\draw\draw_list.h" />
     <ClInclude Include="util\animation.h" />
     <ClInclude Include="util\color.h" />
     <ClInclude Include="util\easing.h" />
@@ -106,7 +106,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="core\menu\menu.cpp" />
-    <ClCompile Include="draw_list.cpp" />
+    <ClCompile Include="core\renderer\draw\draw_list.cpp" />
     <ClCompile Include="util\animation.cpp" />
     <ClCompile Include="util\color.cpp" />
     <ClCompile Include="core\renderer\engine.cpp" />
