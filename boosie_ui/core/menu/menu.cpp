@@ -376,8 +376,6 @@ void menu::begin(const char* label)
 
 	g.currentWindow = window;
 
-	overlay_drawlist->add_filled_rect(GRect(g.rect.x, g.rect.y, 100, 100), style.colors[COL_TEXT]);
-
 	render::add_filled_rect(window->innerClipRect, style.colors[COL_BACKGROUND]);
 
 	render::add_filled_rect(header_rect, style.colors[COL_ITEM_BACKGROUND]);
