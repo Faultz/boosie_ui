@@ -1,19 +1,18 @@
 #include "stdafx.h"
 
 bool g_unloadModule;
-std::vector<scheduler::task> scheduler::main_tasks;
 std::vector<scheduler::task> scheduler::render_tasks;
 
 std::vector<scheduler::task>* scheduler::get_tasks(thread thread)
 {
-	if (thread == thread::main) return &main_tasks;
-	else if (thread == thread::render) return &render_tasks;
+	if (thread == thread::render) return &render_tasks;
 	else return {};
 }
 
-void scheduler::schedule(menu_callback_t callback, uint64_t interval, scheduler::thread thread)
+void scheduler::schedule(menu_callback_t callback, uint64_t arg, uint64_t interval, scheduler::thread thread)
 {
 	scheduler::task task;
+	task.argument = arg;
 	task.callback = callback;
 	task.interval = interval;
 	task.thread = thread;
@@ -62,7 +61,7 @@ void scheduler::execute(thread thread)
 			continue;
 
 		task.last_call_time = get_time();
-		task.callback();
+		task.callback((void*)task.argument);
 
 		if (task.is_temp)
 		{

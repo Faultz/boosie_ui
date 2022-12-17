@@ -85,7 +85,7 @@ public:
 		tabItemRect = GRect();
 	}
 
-	std::string name;
+	char name[32];
 	int tabItemId;
 	GRect tabItemRect;
 };
@@ -140,7 +140,7 @@ public:
 		indentSize = 0.0f;
 		currLineTextBaseOffset = 0.0f;
 		prevLineTextBaseOffset = 0.0f;
-		clipRect = GRect();
+		innerClipRect = GRect();
 		rectRel = GRect();
 		itemFlags = 0;
 		globalFontScale = 0.0f;
@@ -177,7 +177,7 @@ public:
 	float currLineTextBaseOffset;
 	float prevLineTextBaseOffset;
 	float indentSize;
-	GRect clipRect;
+	GRect innerClipRect;
 	GRect rectRel;
 	int itemFlags;
 	float globalFontScale;
@@ -434,8 +434,10 @@ namespace menu
 
 	void end_frame();
 
-	void update();
+	void update(void* arg);
 
 	void start();
 	void stop();
+
+	extern draw_list* overlay_drawlist;
 };

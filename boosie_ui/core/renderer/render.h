@@ -92,11 +92,11 @@ enum text_flags
 namespace render
 {
 	void align_text(int alignment, GRect rect, float w, float h, float* x, float* y);
+	void scale_text(int& align, float& xScale, GRect& rect, float textWidth, float& yScale, float textHeight);
 
 	// text drawing
-	void add_text(std::string text, GRect rect, int style, int align, float xScale, float yScale, float* clr, float* underline_clr = color());
-	void scale_text(int& align, float& xScale, GRect& rect, float textWidth, float& yScale, float textHeight);
-	void add_text_with_effect(std::string text, GRect rect, int style, int align, float xScale, float yScale, float* clr, float* glow_clr = color());
+	void add_text(const char* text, GRect rect, int style, int align, float xScale, float yScale, float* clr, float* underline_clr = color());
+	void add_text_with_effect(const char* text, GRect rect, int style, int align, float xScale, float yScale, float* clr, float* glow_clr = color());
 
 	void add_outline_rect(float x, float y, float width, float height, float* color, float thickness);
 
@@ -116,10 +116,10 @@ namespace render
 	bool push_clip(GRect rect);
 	void pop_clip();
 
-	void read_text_size(std::string text, float& width, float& height, float xScale, float yScale);
+	void read_text_size(const char* text, float& width, float& height, float xScale, float yScale);
 
-	float get_text_width(std::string text, float xScale);
-	float get_text_height(std::string text, float yScale);
+	float get_text_width(const char* text, float xScale);
+	float get_text_height(const char* text, float yScale);
 
 	void end();
 };

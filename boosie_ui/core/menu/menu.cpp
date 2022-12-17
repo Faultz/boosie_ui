@@ -4,6 +4,8 @@ menu_context* gMenuCtx;
 
 GRect navScoringRect, navResultRect;
 
+draw_list* menu::overlay_drawlist;
+
 static menu_nav_dir navScoreItemQuadrant(float dx, float dy)
 {
 	if (fabsf(dx) > fabsf(dy))
@@ -29,7 +31,7 @@ bool navScoreItem(menu_nav_results* result) {
 	if (g.lastItemData.Rect == scoring_rect)
 		return false;
 
-	GBounds clip(window.clipRect);
+	GBounds clip(window.innerClipRect);
 	GBounds cand(g.lastItemData.Rect);
 	GBounds navScoring(scoring_rect);
 
@@ -145,11 +147,13 @@ int cellPad_GetData(uint32_t port_no, CellPadData* data)
 void menu::create_context()
 {
 	gMenuCtx = new menu_context();
+	overlay_drawlist = new draw_list();
 }
 
 void menu::destroy_context()
 {
 	delete gMenuCtx;
+	delete overlay_drawlist;
 }
 
 void menu::set_window_pos(vec2_t pos)
@@ -186,7 +190,7 @@ vec2_t menu::calc_next_scroll_and_clamp(menu_window* window)
 	if (window->scrollTarget.y < FLT_MAX)
 	{
 		scroll.y = window->scrollTarget.y;
-		scroll.y = clamp(scroll.y, 0.0f, window->contentSize.y - window->clipRect.h);
+		scroll.y = clamp(scroll.y, 0.0f, window->contentSize.y - window->innerClipRect.h);
 	}
 
 	return scroll;
@@ -207,7 +211,7 @@ vec2_t menu::scroll_to_rect(menu_window* window, const GBounds& item_rect)
 {
 	menu_context& g = *gMenuCtx;
 
-	GBounds clip_bb(window->clipRect);
+	GBounds clip_bb(window->innerClipRect);
 
 	const bool can_be_fully_visible_y = item_rect.GetHeight() + (g.style.itemSpacing.y * 2.0f) <= clip_bb.GetHeight();
 	float target_y = can_be_fully_visible_y ? floorf((item_rect.Min.y + item_rect.Max.y - clip_bb.GetHeight()) * 0.5f) : item_rect.Min.y;
@@ -233,7 +237,7 @@ menu_window* menu::create_window(int id)
 	
 	created_window->Pos = vec2_t(window_rect.x, window_rect.y);
 	created_window->windowPadding = vec2_t(7.0f, 7.0f);
-	created_window->clipRect = GRect(g.rect.x, g.rect.y, g.rect.w, g.rect.h);
+	created_window->innerClipRect = GRect(g.rect.x, g.rect.y, g.rect.w, g.rect.h);
 	created_window->itemFlags = ITEM_FLAG_NONE;
 	created_window->globalFontScale = 0.5f;
 	created_window->globalFontScaleY = 0.5f;
@@ -273,7 +277,7 @@ void menu::new_frame()
 
 	if (g.currentWindow)
 	{
-		if (g.moveNavDir == NAV_DIR_DOWN || g.moveNavDir == NAV_DIR_UP && g.currentWindow->contentSize.y > g.currentWindow->clipRect.h)
+		if (g.moveNavDir == NAV_DIR_DOWN || g.moveNavDir == NAV_DIR_UP && g.currentWindow->contentSize.y > g.currentWindow->innerClipRect.h)
 		{
 			menu_nav_results* results = &g.navResults;
 
@@ -296,7 +300,7 @@ void menu::new_frame()
 		const float scroll_speed = (16.0f * 100 * g.deltaTime + 0.5f);
 		const auto s = g_nav.is_down(NAV_RSTICK_UP) - g_nav.is_down(NAV_RSTICK_DOWN);
 
-		if (analog.analogRight.y != 0.0f && window.contentSize.y > window.clipRect.h)
+		if (analog.analogRight.y != 0.0f && window.contentSize.y > window.innerClipRect.h)
 		{
 			set_window_scroll_y(&window, (window.scrollPos.y + s * scroll_speed));
 		}
@@ -361,8 +365,6 @@ void menu::begin(const char* label)
 
 	if (g.currentWindow)
 	{
-		static analog_input_t analog;
-
 		menu_window& window = *g.currentWindow;
 
 		navScoringRect.x = window.rectRel.x;
@@ -374,7 +376,9 @@ void menu::begin(const char* label)
 
 	g.currentWindow = window;
 
-	render::add_filled_rect(window->clipRect, style.colors[COL_BACKGROUND]);
+	overlay_drawlist->add_filled_rect(GRect(g.rect.x, g.rect.y, 100, 100), style.colors[COL_TEXT]);
+
+	render::add_filled_rect(window->innerClipRect, style.colors[COL_BACKGROUND]);
 
 	render::add_filled_rect(header_rect, style.colors[COL_ITEM_BACKGROUND]);
 	render::add_text(label, headertext_rect, 1, vert_center | horz_left, .5f, .5f * ASPECT_RATIO, style.colors[COL_TEXT]);
@@ -415,7 +419,7 @@ bool menu::begin_tab_bar(const char* name)
 
 	g.currentTabBar = current_tab;
 
-	GRect rect(window->cursorPos.x - window->windowPadding.x, window->cursorPos.y, window->clipRect.w, 20 * ASPECT_RATIO);
+	GRect rect(window->cursorPos.x - window->windowPadding.x, window->cursorPos.y, window->innerClipRect.w, 20 * ASPECT_RATIO);
 	GRect divider_line(rect.x, rect.y + rect.h - 2, rect.w, 2);
 
 	render::add_filled_rect(divider_line, style.colors[COL_ITEM_BACKGROUND]);
@@ -427,7 +431,7 @@ bool menu::begin_tab_bar(const char* name)
 
 		auto tab_item = current_tab->tabItems.find_by_index(i);
 
-		auto tab_id = get_id(fmt_str("%s#tab_item", tab_item->name.data(), i));
+		auto tab_id = get_id(fmt_str("%s#tab_item", tab_item->name, i));
 
 		auto tab_name_width = render::get_text_width(tab_item->name, .5f) + 10;
 
@@ -478,7 +482,7 @@ bool menu::begin_tab_item(const char* name)
 	if (!current_tab_item)
 	{
 		current_tab->tabItems[id] = new menu_tab_item();
-		current_tab->tabItems[id]->name = name;
+		strcpy(current_tab->tabItems[id]->name, name);
 		return false;
 	}
 
@@ -542,7 +546,7 @@ bool menu::item_add(GRect rect, int id)
 		}
 	}
 
-	if (!rect.overlaps(GRect(g.currentWindow->clipRect)))
+	if (!rect.overlaps(GRect(g.currentWindow->innerClipRect)))
 		return false;
 
 	return true;
@@ -953,6 +957,8 @@ void menu::end_frame()
 {
 	menu_context& g = *gMenuCtx;
 
+	overlay_drawlist->render();
+
 	g_nav.end_frame();
 
 	g.stopNavRequest();
@@ -973,7 +979,7 @@ bool menu::is_released(int id)
 	return g_nav.is_released(id);
 }
 
-void menu::update()
+void menu::update(void* arg)
 {
 	g_nav.new_frame();
 
@@ -1087,7 +1093,7 @@ void menu::start()
 	set_window_pos(350, 200);
 	set_window_size(450, 750);
 
-	scheduler::schedule(update, 0u, scheduler::render);
+	scheduler::schedule(update, 0u, scheduler::render_foreground);
 
 	cell_pad_get_data_d = new detour(cellPad_GetData_t, cellPad_GetData);
 }

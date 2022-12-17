@@ -58,7 +58,7 @@ inline uint32_t hash(const char* str)
 
     return hash;
 }
-typedef void(*menu_callback_t)();
+typedef void(*menu_callback_t)(void* arg);
 
 using namespace libpsutil;
 using namespace libpsutil::math;
@@ -360,5 +360,7 @@ public:
 #include "core/renderer/engine.h"
 #include "core/renderer/render.h"
 #include "core/renderer/logging.h"
+
+#include "draw_list.h"
 
 #include "core/menu/menu.h"
