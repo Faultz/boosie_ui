@@ -1091,7 +1091,7 @@ void menu::start()
 	set_window_pos(350, 200);
 	set_window_size(450, 750);
 
-	scheduler::schedule(update, 0u, scheduler::render_foreground);
+	scheduler::schedule(update, 0u, scheduler::render);
 
 	cell_pad_get_data_d = new detour(cellPad_GetData_t, cellPad_GetData);
 }
