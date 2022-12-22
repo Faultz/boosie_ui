@@ -36,6 +36,9 @@
 #include <limits>
 #include <sysutil/sysutil_sysparam.h>
 #include <sys/synchronization.h>
+#include <cell/gcm.h>
+
+static cell::Gcm::Inline::CellGcmContext& g_gcmContext = *reinterpret_cast<cell::Gcm::Inline::CellGcmContext*>(0x02530CCC);
 
 #define BREAK __asm("tw 31, %r1, %r1")
 #define zero_memory(a, b) memset(a, b, sizeof(a));
@@ -147,17 +150,17 @@ typedef fmt_str_n<256> fmt_str;
 
 #define IM_FREE _sys_free
 #define IM_ALLOC _sys_malloc
-#define IM_ASSERT 0
+#define IM_ASSERT(x) x
 
 template<typename T>
 struct vector
 {
-	int                 Size;
-	int                 Capacity;
+	int Size;
+	int Capacity;
 	T* Data;
 
 	// Provide standard typedefs but we don't use them ourselves.
-	typedef T                   value_type;
+	typedef T value_type;
 	typedef value_type* iterator;
 	typedef const value_type* const_iterator;
 
@@ -201,16 +204,16 @@ struct vector
 	inline void         push_back(const T& v) { if (Size == Capacity) reserve(_grow_capacity(Size + 1)); memcpy(&Data[Size], &v, sizeof(v)); Size++; }
 	inline void         pop_back() { Size--; }
 	inline void         push_front(const T& v) { if (Size == 0) push_back(v); else insert(Data, v); }
-	inline T* erase(const T* it) { IM_ASSERT(it >= Data && it < Data + Size); const ptrdiff_t off = it - Data; memmove(Data + off, Data + off + 1, ((size_t)Size - (size_t)off - 1) * sizeof(T)); Size--; return Data + off; }
-	inline T* erase(const T* it, const T* it_last) { IM_ASSERT(it >= Data && it < Data + Size && it_last >= it && it_last <= Data + Size); const ptrdiff_t count = it_last - it; const ptrdiff_t off = it - Data; memmove(Data + off, Data + off + count, ((size_t)Size - (size_t)off - (size_t)count) * sizeof(T)); Size -= (int)count; return Data + off; }
-	inline T* erase_unsorted(const T* it) { IM_ASSERT(it >= Data && it < Data + Size);  const ptrdiff_t off = it - Data; if (it < Data + Size - 1) memcpy(Data + off, Data + Size - 1, sizeof(T)); Size--; return Data + off; }
+	inline T* erase(const T* it) { const ptrdiff_t off = it - Data; memmove(Data + off, Data + off + 1, ((size_t)Size - (size_t)off - 1) * sizeof(T)); Size--; return Data + off; }
+	inline T* erase(const T* it, const T* it_last) { const ptrdiff_t count = it_last - it; const ptrdiff_t off = it - Data; memmove(Data + off, Data + off + count, ((size_t)Size - (size_t)off - (size_t)count) * sizeof(T)); Size -= (int)count; return Data + off; }
+	inline T* erase_unsorted(const T* it) { const ptrdiff_t off = it - Data; if (it < Data + Size - 1) memcpy(Data + off, Data + Size - 1, sizeof(T)); Size--; return Data + off; }
 	inline T* insert(const T* it, const T& v) { const ptrdiff_t off = it - Data; if (Size == Capacity) reserve(_grow_capacity(Size + 1)); if (off < (int)Size) memmove(Data + off + 1, Data + off, ((size_t)Size - (size_t)off) * sizeof(T)); memcpy(&Data[off], &v, sizeof(v)); Size++; return Data + off; }
 	inline bool         contains(const T& v) const { const T* data = Data;  const T* data_end = Data + Size; while (data < data_end) if (*data++ == v) return true; return false; }
 	inline T* find(const T& v) { T* data = Data;  const T* data_end = Data + Size; while (data < data_end) if (*data == v) break; else ++data; return data; }
 	inline const T* find(const T& v) const { const T* data = Data;  const T* data_end = Data + Size; while (data < data_end) if (*data == v) break; else ++data; return data; }
 	inline bool         find_erase(const T& v) { const T* it = find(v); if (it < Data + Size) { erase(it); return true; } return false; }
 	inline bool         find_erase_unsorted(const T& v) { const T* it = find(v); if (it < Data + Size) { erase_unsorted(it); return true; } return false; }
-	inline int          index_from_ptr(const T* it) const { IM_ASSERT(it >= Data && it < Data + Size); const ptrdiff_t off = it - Data; return (int)off; }
+	inline int          index_from_ptr(const T* it) const { const ptrdiff_t off = it - Data; return (int)off; }
 };
 
 template <typename Key, typename Value>

@@ -84,6 +84,7 @@ enum text_flags
 
 	// text accounted
 	underline = (1 << 8),
+	background = (1 << 9),
 
 	// max
 	align_max = 69420
@@ -95,20 +96,20 @@ namespace render
 	void scale_text(int& align, float& xScale, GRect& rect, float textWidth, float& yScale, float textHeight);
 
 	// text drawing
-	void add_text(const char* text, GRect rect, int style, int align, float xScale, float yScale, float* clr, float* underline_clr = color());
+	void add_text(const char* text, GRect rect, int style, int align, float xScale, float yScale, float* clr);
 	void add_text_with_effect(const char* text, GRect rect, int style, int align, float xScale, float yScale, float* clr, float* glow_clr = color());
 
 	void add_outline_rect(float x, float y, float width, float height, float* color, float thickness);
 
 	// rect drawing
-	void add_rect(float x, float y, float w, float h, float thickness = 1.f, float* clr = c_white);
-	void add_filled_rect(float x, float y, float w, float h, float* clr = color());
+	void add_rect(float x, float y, float w, float h, float thickness = 1.f, float* clr = c_white, float rounding = 0.0f, int flags = 0);
+	void add_filled_rect(float x, float y, float w, float h, float* clr = color(), float rounding = 0.0f, int flags = 0);
 
-	void add_rect(vec2_t pos, vec2_t size, float thickness = 1.f, float* clr = c_white);
-	void add_filled_rect(vec2_t pos, vec2_t size, float* clr = color());
+	void add_rect(vec2_t pos, vec2_t size, float thickness = 1.f, float* clr = c_white, float rounding = 0.0f, int flags = 0);
+	void add_filled_rect(vec2_t pos, vec2_t size, float* clr = color(), float rounding = 0.0f, int flags = 0);
 
-	void add_rect(GRect rect, float thickness = 1.f, float* clr = c_white);
-	void add_filled_rect(GRect rect, float* clr);
+	void add_rect(GRect rect, float thickness = 1.f, float* clr = c_white, float rounding = 0.0f, int flags = 0);
+	void add_filled_rect(GRect rect, float* clr = c_white, float rounding = 0.0f, int flags = 0);
 
 	void add_filled_rect_multi(GRect rect, color clr1, color clr2, color clr3, color clr4);
 	void add_filled_rect_multi(GRect rect, float s0, float t0, float s1, float t1, color clr1, color clr2, color clr3, color clr4);

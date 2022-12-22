@@ -8,26 +8,21 @@ class color
 public:
 	float r, g, b, a;
 
-	color() = default;
+	color() { zero_memory(this, sizeof(*this)); };
 	color(const color& clr, float alpha) : r(clr.r), g(clr.g), b(clr.b), a(alpha) {}
 	color(const color& clr, int alpha) : r(clr.r), g(clr.g), b(clr.b), a(alpha / 255.f) {}
 	color(int r, int g, int b, int a) : r(r / 255.f), g(g / 255.f), b(b / 255.f), a(a / 255.f) {}
 	color(int r, int g, int b) : r(r / 255.f), g(g / 255.f), b(b / 255.f), a(1.0f) {}
 	color(int r, int g, int b, float a) : r(r / 255.f), g(g / 255.f), b(b / 255.f), a(a) { }
-	color(float r, float g, float b, float a) : r(r), g(g), b(b), a(a) {}
+	color(float r, float g, float b, float a) {
+		zero_memory(this, sizeof(*this));
+		this->r = r;
+		this->g = g;
+		this->b = b;
+		this->a = a;
+	}
 	color(int color) : r((color >> 16 & 0xff) / 255.f), g((color >> 8 & 0xff) / 255.f), b((color & 0xff) / 255.f), a((color >> 24 & 0xff) / 255.f) {}
 
-	color operator*(const float& val)
-	{
-		color out{ *this };
-
-		out.r *= val;
-		out.g *= val;
-		out.b *= val;
-		out.a *= val;
-
-		return out;
-	}
 	void interpolate(float offset)
 	{
 		static float rainbow_tick = 0.f;

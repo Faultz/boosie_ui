@@ -124,6 +124,52 @@ public:
 	menu_tab_item* currentTabItem;
 	map<menu_id, menu_tab_item*> tabItems;
 };
+struct menu_list_clipper_range
+{
+	int     min;
+	int     max;
+	bool    posToIndexConvert;      // Begin/End are absolute position (will be converted to indices later)
+	char    posToIndexOffsetMin;    // Add to Min after converting to indices
+	char    posToIndexOffsetMax;    // Add to Min after converting to indices
+
+	static menu_list_clipper_range    fromIndices(int min, int max) { menu_list_clipper_range r = { min, max, false, 0, 0 }; return r; }
+	static menu_list_clipper_range    fromPositions(float y1, float y2, int off_min, int off_max) { menu_list_clipper_range r = { (int)y1, (int)y2, true, (char)off_min, (char)off_max }; return r; }
+};
+
+struct menu_list_clipper
+{
+	int displayStart;
+	int displayEnd;
+	int itemsCount;
+	float itemsHeight;
+	float startPosY;
+	void* tempData;
+
+	menu_list_clipper()
+	{
+		memset(this, 0, sizeof(*this));
+		itemsCount = -1;
+	}
+	~menu_list_clipper()
+	{
+		end();
+	}
+	void begin(int item_count, int item_height = -1);
+	void end();
+	bool step();
+};
+
+struct menu_list_clipper_data
+{
+	menu_list_clipper* listClipper;
+	float lossynessOffset;
+	int stepNo;
+	int itemsFrozen;
+	vector<menu_list_clipper_range> Ranges;
+
+	menu_list_clipper_data() { memset(this, 0, sizeof(*this)); }
+	void reset(menu_list_clipper* clipper) { listClipper = clipper; stepNo = itemsFrozen = 0; Ranges.resize(0); }
+};
 
 class menu_window
 {
@@ -134,6 +180,7 @@ public:
 		isSameLine = false;
 		Pos = vec2_t();
 		cursorPos = vec2_t();
+		cursorPosLossyness = vec2_t();
 		cursorPosPrevLine = vec2_t();
 		cursorStartPos = vec2_t();
 		cursorMaxPos = vec2_t();
@@ -158,6 +205,7 @@ public:
 		fontScaleStack = vector<menu_font_mod>();
 		currentTab = nullptr;
 		tabMap = map<menu_id, menu_tab_bar*>();
+		idStack = vector<menu_id>();
 	}
 	~menu_window()
 	{
@@ -173,6 +221,7 @@ public:
 	bool isSameLine;
 	vec2_t Pos;
 	vec2_t cursorPos;
+	vec2_t cursorPosLossyness;
 	vec2_t cursorPosPrevLine;
 	vec2_t cursorStartPos;
 	vec2_t cursorMaxPos;
@@ -198,6 +247,7 @@ public:
 	vector<menu_font_mod> fontScaleStack;
 	menu_tab_bar* currentTab;
 	map<menu_id, menu_tab_bar*> tabMap;
+	vector<menu_id> idStack;
 };
 
 class menu_style
@@ -205,7 +255,6 @@ class menu_style
 public:
 	menu_style() 
 	{
-		borderSpacing = vec2_t(8.0f, 8.0f);
 		itemSpacing = vec2_t(5.0f, 5.0f);
 		itemInnerSpacing = vec2_t(4.0f, 4.0f);
 		framePadding = vec2_t(4.0f, 5.0f);
@@ -218,10 +267,10 @@ public:
 		colors[COL_TEXT_ACTIVE] = color(200, 230, 200, 255);
 	}
 
-	vec2_t borderSpacing;
 	vec2_t itemSpacing;
 	vec2_t itemInnerSpacing;
 	vec2_t framePadding;
+	float frameRounding;
 	color colors[COL_MAX];
 };
 
@@ -252,7 +301,6 @@ public:
 		navResults = menu_nav_results();
 		style = menu_style();
 		colModifiers = vector<menu_col_mod>();
-		idStack = vector<menu_id>();
 		windowMap = map<menu_id, menu_window*>();
 	}
 	~menu_context()
@@ -287,9 +335,12 @@ public:
 	menu_last_item_data lastItemData;
 	menu_nav_results navResults;
 	GRect navScoringRect;
+
+	int clipperTempDataStacked;
+	vector<menu_list_clipper_data>  clipperTempData;
+
 	menu_style style;
 	vector<menu_col_mod> colModifiers;
-	vector<menu_id> idStack;
 	map<menu_id, menu_window*> windowMap;
 
 	void createNavRequest(menu_nav_dir navDir) 
@@ -313,9 +364,10 @@ public:
 		}
 	}
 };
+static inline float  saturate(float f) { return (f < 0.0f) ? 0.0f : (f > 1.0f) ? 1.0f : f; }
+static inline bool   floatAboveGuaranteedIntegerPrecision(float f) { return f <= -16777216 || f >= 16777216; }
 
 extern menu_context* gMenuCtx;
-
 namespace menu
 {
 	void create_context();
@@ -338,13 +390,13 @@ namespace menu
 	void set_scroll_from_y(menu_window* window, float local_y, float center_y_ratio);
 	vec2_t scroll_to_rect(menu_window* window, const GBounds& item_rect);
 
-	menu_window* create_window(int id);
+	menu_window* create_window(const char* label, int id);
 
 	void set_window_scroll_y(menu_window* window, float scroll);
 
 	void new_frame();
 
-	menu_id get_id(const char* label);
+	menu_id get_id(const char* label, const char* str_end = nullptr);
 	void set_active_id(menu_id id);
 
 	menu_window* get_current_window();

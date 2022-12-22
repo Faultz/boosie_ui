@@ -6,7 +6,72 @@ GRect navScoringRect, navResultRect;
 
 draw_list* menu::overlay_drawlist;
 
-static inline float  saturate(float f) { return (f < 0.0f) ? 0.0f : (f > 1.0f) ? 1.0f : f; }
+static const uint32_t GCrc32LookupTable[256] =
+{
+	0x00000000,0x77073096,0xEE0E612C,0x990951BA,0x076DC419,0x706AF48F,0xE963A535,0x9E6495A3,0x0EDB8832,0x79DCB8A4,0xE0D5E91E,0x97D2D988,0x09B64C2B,0x7EB17CBD,0xE7B82D07,0x90BF1D91,
+	0x1DB71064,0x6AB020F2,0xF3B97148,0x84BE41DE,0x1ADAD47D,0x6DDDE4EB,0xF4D4B551,0x83D385C7,0x136C9856,0x646BA8C0,0xFD62F97A,0x8A65C9EC,0x14015C4F,0x63066CD9,0xFA0F3D63,0x8D080DF5,
+	0x3B6E20C8,0x4C69105E,0xD56041E4,0xA2677172,0x3C03E4D1,0x4B04D447,0xD20D85FD,0xA50AB56B,0x35B5A8FA,0x42B2986C,0xDBBBC9D6,0xACBCF940,0x32D86CE3,0x45DF5C75,0xDCD60DCF,0xABD13D59,
+	0x26D930AC,0x51DE003A,0xC8D75180,0xBFD06116,0x21B4F4B5,0x56B3C423,0xCFBA9599,0xB8BDA50F,0x2802B89E,0x5F058808,0xC60CD9B2,0xB10BE924,0x2F6F7C87,0x58684C11,0xC1611DAB,0xB6662D3D,
+	0x76DC4190,0x01DB7106,0x98D220BC,0xEFD5102A,0x71B18589,0x06B6B51F,0x9FBFE4A5,0xE8B8D433,0x7807C9A2,0x0F00F934,0x9609A88E,0xE10E9818,0x7F6A0DBB,0x086D3D2D,0x91646C97,0xE6635C01,
+	0x6B6B51F4,0x1C6C6162,0x856530D8,0xF262004E,0x6C0695ED,0x1B01A57B,0x8208F4C1,0xF50FC457,0x65B0D9C6,0x12B7E950,0x8BBEB8EA,0xFCB9887C,0x62DD1DDF,0x15DA2D49,0x8CD37CF3,0xFBD44C65,
+	0x4DB26158,0x3AB551CE,0xA3BC0074,0xD4BB30E2,0x4ADFA541,0x3DD895D7,0xA4D1C46D,0xD3D6F4FB,0x4369E96A,0x346ED9FC,0xAD678846,0xDA60B8D0,0x44042D73,0x33031DE5,0xAA0A4C5F,0xDD0D7CC9,
+	0x5005713C,0x270241AA,0xBE0B1010,0xC90C2086,0x5768B525,0x206F85B3,0xB966D409,0xCE61E49F,0x5EDEF90E,0x29D9C998,0xB0D09822,0xC7D7A8B4,0x59B33D17,0x2EB40D81,0xB7BD5C3B,0xC0BA6CAD,
+	0xEDB88320,0x9ABFB3B6,0x03B6E20C,0x74B1D29A,0xEAD54739,0x9DD277AF,0x04DB2615,0x73DC1683,0xE3630B12,0x94643B84,0x0D6D6A3E,0x7A6A5AA8,0xE40ECF0B,0x9309FF9D,0x0A00AE27,0x7D079EB1,
+	0xF00F9344,0x8708A3D2,0x1E01F268,0x6906C2FE,0xF762575D,0x806567CB,0x196C3671,0x6E6B06E7,0xFED41B76,0x89D32BE0,0x10DA7A5A,0x67DD4ACC,0xF9B9DF6F,0x8EBEEFF9,0x17B7BE43,0x60B08ED5,
+	0xD6D6A3E8,0xA1D1937E,0x38D8C2C4,0x4FDFF252,0xD1BB67F1,0xA6BC5767,0x3FB506DD,0x48B2364B,0xD80D2BDA,0xAF0A1B4C,0x36034AF6,0x41047A60,0xDF60EFC3,0xA867DF55,0x316E8EEF,0x4669BE79,
+	0xCB61B38C,0xBC66831A,0x256FD2A0,0x5268E236,0xCC0C7795,0xBB0B4703,0x220216B9,0x5505262F,0xC5BA3BBE,0xB2BD0B28,0x2BB45A92,0x5CB36A04,0xC2D7FFA7,0xB5D0CF31,0x2CD99E8B,0x5BDEAE1D,
+	0x9B64C2B0,0xEC63F226,0x756AA39C,0x026D930A,0x9C0906A9,0xEB0E363F,0x72076785,0x05005713,0x95BF4A82,0xE2B87A14,0x7BB12BAE,0x0CB61B38,0x92D28E9B,0xE5D5BE0D,0x7CDCEFB7,0x0BDBDF21,
+	0x86D3D2D4,0xF1D4E242,0x68DDB3F8,0x1FDA836E,0x81BE16CD,0xF6B9265B,0x6FB077E1,0x18B74777,0x88085AE6,0xFF0F6A70,0x66063BCA,0x11010B5C,0x8F659EFF,0xF862AE69,0x616BFFD3,0x166CCF45,
+	0xA00AE278,0xD70DD2EE,0x4E048354,0x3903B3C2,0xA7672661,0xD06016F7,0x4969474D,0x3E6E77DB,0xAED16A4A,0xD9D65ADC,0x40DF0B66,0x37D83BF0,0xA9BCAE53,0xDEBB9EC5,0x47B2CF7F,0x30B5FFE9,
+	0xBDBDF21C,0xCABAC28A,0x53B39330,0x24B4A3A6,0xBAD03605,0xCDD70693,0x54DE5729,0x23D967BF,0xB3667A2E,0xC4614AB8,0x5D681B02,0x2A6F2B94,0xB40BBE37,0xC30C8EA1,0x5A05DF1B,0x2D02EF8D,
+};
+
+// Known size hash
+// It is ok to call ImHashData on a string with known length but the ### operator won't be supported.
+// FIXME-OPT: Replace with e.g. FNV1a hash? CRC32 pretty much randomly access 1KB. Need to do proper measurements.
+menu_id hash_data(const void* data_p, size_t data_size, uint32_t seed)
+{
+	uint32_t crc = ~seed;
+	const unsigned char* data = (const unsigned char*)data_p;
+	const uint32_t* crc32_lut = GCrc32LookupTable;
+	while (data_size-- != 0)
+		crc = (crc >> 8) ^ crc32_lut[(crc & 0xFF) ^ *data++];
+	return ~crc;
+}
+
+// Zero-terminated string hash, with support for ### to reset back to seed value
+// We support a syntax of "label###id" where only "###id" is included in the hash, and only "label" gets displayed.
+// Because this syntax is rarely used we are optimizing for the common case.
+// - If we reach ### in the string we discard the hash so far and reset to the seed.
+// - We don't do 'current += 2; continue;' after handling ### to keep the code smaller/faster (measured ~10% diff in Debug build)
+// FIXME-OPT: Replace with e.g. FNV1a hash? CRC32 pretty much randomly access 1KB. Need to do proper measurements.
+menu_id hash_str(const char* data_p, size_t data_size, uint32_t seed)
+{
+	seed = ~seed;
+	uint32_t crc = seed;
+	const unsigned char* data = (const unsigned char*)data_p;
+	const uint32_t* crc32_lut = GCrc32LookupTable;
+	if (data_size != 0)
+	{
+		while (data_size-- != 0)
+		{
+			unsigned char c = *data++;
+			if (c == '#' && data_size >= 2 && data[0] == '#' && data[1] == '#')
+				crc = seed;
+			crc = (crc >> 8) ^ crc32_lut[(crc & 0xFF) ^ c];
+		}
+	}
+	else
+	{
+		while (unsigned char c = *data++)
+		{
+			if (c == '#' && data[0] == '#' && data[1] == '#')
+				crc = seed;
+			crc = (crc >> 8) ^ crc32_lut[(crc & 0xFF) ^ c];
+		}
+	}
+	return ~crc;
+}
 
 const char* parseFormatFindStart(const char* fmt)
 {
@@ -213,7 +278,7 @@ TYPE scaleValueFromRatioT(int data_type, float t, TYPE v_min, TYPE v_max, bool i
 		const bool is_floating_point = (data_type == DATA_TYPE_FLOAT) || (data_type == DATA_TYPE_FLOAT);
 		if (is_floating_point)
 		{
-			result = easing::lerp<TYPE>(v_min, v_max, t);
+			result = (TYPE)easing::lerp<TYPE>(v_min, v_max, t);
 		}
 		else if (t < 1.0)
 		{
@@ -367,6 +432,181 @@ int cellPad_GetData(uint32_t port_no, CellPadData* data)
 	return 0;
 }
 
+void menu_list_clipper::begin(int item_count, int item_height)
+{
+	menu_context& g = *gMenuCtx;
+	menu_window& window = *g.currentWindow;
+
+	startPosY = window.cursorPos.y;
+	itemsHeight = item_height;
+	itemsCount = item_count;
+	displayStart = -1;
+	displayEnd = 0;
+
+	if (++g.clipperTempDataStacked > g.clipperTempData.Size)
+		g.clipperTempData.resize(g.clipperTempDataStacked, menu_list_clipper_data());
+	menu_list_clipper_data* data = &g.clipperTempData[g.clipperTempDataStacked - 1];
+	data->reset(this);
+	data->lossynessOffset = window.cursorPosLossyness.y;
+	tempData = data;
+}
+
+static void sortAndFuseRanges(vector<menu_list_clipper_range>& ranges, int offset = 0)
+{
+	if (ranges.Size - offset <= 1)
+		return;
+
+	// Helper to order ranges and fuse them together if possible (bubble sort is fine as we are only sorting 2-3 entries)
+	for (int sort_end = ranges.Size - offset - 1; sort_end > 0; --sort_end)
+		for (int i = offset; i < sort_end + offset; ++i)
+			if (ranges[i].min > ranges[i + 1].min)
+				std::swap(ranges[i], ranges[i + 1]);
+
+	// Now fuse ranges together as much as possible.
+	for (int i = 1 + offset; i < ranges.Size; i++)
+	{
+		IM_ASSERT(!ranges[i].posToIndexConvert && !ranges[i - 1].posToIndexConvert);
+		if (ranges[i - 1].max < ranges[i].min)
+			continue;
+		ranges[i - 1].min =	std::min(ranges[i - 1].min, ranges[i].min);
+		ranges[i - 1].max =	std::max(ranges[i - 1].max, ranges[i].max);
+		ranges.erase(ranges.Data + i);
+		i--;
+	}
+}
+static void seekCursorAndSetupPrevLine(float pos_y, float line_height)
+{
+	menu_context& g = *gMenuCtx;
+	menu_window* window = g.currentWindow;
+
+	window->cursorPos.y = pos_y;
+	window->cursorMaxPos.y = std::max(window->cursorMaxPos.y, pos_y - g.style.itemSpacing.y);
+	window->cursorPosPrevLine.y = window->cursorPos.y - line_height;  // Setting those fields so that SetScrollHereY() can properly function after the end of our clipper usage.
+	window->prevLineSize.y = (line_height - g.style.itemSpacing.y);      // If we end up needing more accurate data (to e.g. use SameLine) we may as well make the clipper have a fourth step to let user process and display the last item in their list.
+}
+
+static void seekCursorForItem(menu_list_clipper* clipper, int item_n)
+{
+	// StartPosY starts from ItemsFrozen hence the subtraction
+	// Perform the add and multiply with double to allow seeking through larger ranges
+	menu_list_clipper_data* data = (menu_list_clipper_data*)clipper->tempData;
+	float pos_y = (float)((double)clipper->startPosY + data->lossynessOffset + (double)(item_n - data->itemsFrozen) * clipper->itemsHeight);
+	seekCursorAndSetupPrevLine(pos_y, clipper->itemsHeight);
+}
+
+static bool listClipper_StepInternal(menu_list_clipper* clipper)
+{
+	menu_context& g = *gMenuCtx;
+	menu_window* window = g.currentWindow;
+	menu_list_clipper_data* data = (menu_list_clipper_data*)clipper->tempData;
+
+	// No items
+	if (clipper->itemsCount == 0)
+		return false;
+
+	// Step 0: Let you process the first element (regardless of it being visible or not, so we can measure the element height)
+	bool calc_clipping = false;
+	if (data->stepNo == 0)
+	{
+		clipper->startPosY = window->cursorPos.y;
+		if (clipper->itemsHeight <= 0.0f)
+		{
+			// Submit the first item (or range) so we can measure its height (generally the first range is 0..1)
+			data->Ranges.push_front(menu_list_clipper_range::fromIndices(data->itemsFrozen, data->itemsFrozen + 1));
+			clipper->displayStart = std::max(data->Ranges[0].min, data->itemsFrozen);
+			clipper->displayEnd = std::min(data->Ranges[0].max, clipper->itemsCount);
+			data->stepNo = 1;
+			return true;
+		}
+		calc_clipping = true;   // If on the first step with known item height, calculate clipping.
+	}
+
+	// Step 1: Let the clipper infer height from first range
+	if (clipper->itemsHeight <= 0.0f)
+	{
+		clipper->itemsHeight = (window->cursorPos.y - clipper->startPosY) / (float)(clipper->displayEnd - clipper->displayStart);
+		bool affected_by_floating_point_precision = floatAboveGuaranteedIntegerPrecision(clipper->startPosY) || floatAboveGuaranteedIntegerPrecision(window->cursorPos.y);
+		if (affected_by_floating_point_precision)
+			clipper->itemsHeight = window->prevLineSize.y + g.style.itemSpacing.y; // FIXME: Technically wouldn't allow multi-line entries.
+
+		calc_clipping = true;   // If item height had to be calculated, calculate clipping afterwards.
+	}
+
+	// Step 0 or 1: Calculate the actual ranges of visible elements.
+	const int already_submitted = clipper->displayEnd;
+	if (calc_clipping)
+	{
+
+		// Add visible range
+		data->Ranges.push_back(menu_list_clipper_range::fromPositions(window->innerClipRect.y, window->innerClipRect.y + window->innerClipRect.h, 0, 0));
+
+		// Convert position ranges to item index ranges
+		// - Very important: when a starting position is after our maximum item, we set Min to (ItemsCount - 1). This allows us to handle most forms of wrapping.
+		// - Due to how Selectable extra padding they tend to be "unaligned" with exact unit in the item list,
+		//   which with the flooring/ceiling tend to lead to 2 items instead of one being submitted.
+		for (int i = 0; i < data->Ranges.Size; i++)
+			if (data->Ranges[i].posToIndexConvert)
+			{
+				int m1 = (int)(((double)data->Ranges[i].min - window->cursorPos.y - data->lossynessOffset) / clipper->itemsHeight);
+				int m2 = (int)((((double)data->Ranges[i].max - window->cursorPos.y - data->lossynessOffset) / clipper->itemsHeight) + 0.999999f);
+				data->Ranges[i].min = clamp(already_submitted + m1 + data->Ranges[i].posToIndexOffsetMin, already_submitted, clipper->itemsCount - 1);
+				data->Ranges[i].max = clamp(already_submitted + m2 + data->Ranges[i].posToIndexOffsetMax, data->Ranges[i].min + 1, clipper->itemsCount);
+				data->Ranges[i].posToIndexConvert = false;
+			}
+		sortAndFuseRanges(data->Ranges, data->stepNo);
+	}
+
+	// Step 0+ (if item height is given in advance) or 1+: Display the next range in line.
+	if (data->stepNo < data->Ranges.Size)
+	{
+		clipper->displayStart = std::max(data->Ranges[data->stepNo].min, already_submitted);
+		clipper->displayEnd = std::min(data->Ranges[data->stepNo].max, clipper->itemsCount);
+		if (clipper->displayStart > already_submitted) //-V1051
+			seekCursorForItem(clipper, clipper->displayStart);
+		data->stepNo++;
+		return true;
+	}
+
+	// After the last step: Let the clipper validate that we have reached the expected Y position (corresponding to element DisplayEnd),
+	// Advance the cursor to the end of the list and then returns 'false' to end the loop.
+	if (clipper->itemsCount < INT_MAX)
+		seekCursorForItem(clipper, clipper->itemsCount);
+
+	return false;
+}
+
+void menu_list_clipper::end()
+{
+	menu_context& g = *gMenuCtx;
+	if (menu_list_clipper_data* data = (menu_list_clipper_data*)tempData)
+	{
+		if (itemsCount >= 0 && itemsCount < INT_MAX && displayStart >= 0)
+			seekCursorForItem(this, itemsCount);
+
+		// Restore temporary buffer and fix back pointers which may be invalidated when nesting
+		data->stepNo = data->Ranges.Size;
+		if (--g.clipperTempDataStacked > 0)
+		{
+			data = &g.clipperTempData[g.clipperTempDataStacked - 1];
+			data->listClipper->tempData = data;
+		}
+		tempData = NULL;
+	}
+	itemsCount = -1;
+}
+
+bool menu_list_clipper::step()
+{
+	bool ret = listClipper_StepInternal(this);
+	if (ret && (displayStart == displayEnd))
+		ret = false;
+
+	if (!ret)
+		end();
+
+	return ret;
+}
+
 void menu::create_context()
 {
 	gMenuCtx = new menu_context();
@@ -375,6 +615,8 @@ void menu::create_context()
 
 void menu::destroy_context()
 {
+	g_pathData.clear();
+
 	delete gMenuCtx;
 	delete overlay_drawlist;
 }
@@ -445,18 +687,17 @@ vec2_t menu::scroll_to_rect(menu_window* window, const GBounds& item_rect)
 	return delta_scroll;
 }
 
-menu_window* menu::create_window(int id)
+menu_window* menu::create_window(const char* label, int id)
 {
 	menu_context& g = *gMenuCtx;
-	menu_style& style = g.style;
-
-	const int headerHeight = 20 * ASPECT_RATIO;
 
 	g.windowMap[id] = new menu_window();
 	auto* created_window = g.windowMap[id];
 
-	set_window_pos(created_window, 350, 200);
+	set_window_pos(created_window, 250, 100);
 	set_window_size(created_window, 450, 750);
+
+	created_window->idStack.push_back(id);
 	
 	created_window->windowPadding = vec2_t(7.0f, 7.0f);
 	created_window->itemFlags = ITEM_FLAG_NONE;
@@ -544,10 +785,14 @@ void menu::new_frame()
 	begin("boosie ui");
 }
 
-menu_id menu::get_id(const char* label)
+menu_id menu::get_id(const char* label, const char* str_end)
 {
 	menu_context& g = *gMenuCtx;
-	return g.idStack.empty() ? hash(label) : g.idStack.back();
+	menu_window& window = *g.currentWindow;
+
+	menu_id seed = window.idStack.back();
+	menu_id id = hash_str(label, str_end ? (str_end - label) : 0, seed);
+	return id;
 }
 
 void menu::set_active_id(menu_id id)
@@ -568,15 +813,14 @@ void menu::begin(const char* label)
 	menu_context& g = *gMenuCtx;
 	menu_style& style = g.style;
 
-	auto id = get_id(label);
-
 	const int headerHeight = 20 * ASPECT_RATIO;
 
+	auto id = hash_str(label, 0, 0);
 
 	menu_window* window = g.windowMap[id]; 
 	if (!window)
 	{
-		window = create_window(id);
+		window = create_window(label, id);
 	}
 
 	if (!window)
@@ -586,8 +830,12 @@ void menu::begin(const char* label)
 
 	window->indentSize = 0.0f + window->windowPadding.x;
 
+	double start_pos_x = (double)window->Pos.x + window->windowPadding.x - (double)window->scrollPos.x;
+	double start_pos_y = (double)window->Pos.y + headerHeight + window->windowPadding.y - (double)window->scrollPos.y;
+
 	window->innerClipRect = GRect(window->Pos.x, window->Pos.y + headerHeight, window->Size.x, window->Size.y);
-	window->cursorStartPos = vec2_t(window->Pos.x + window->windowPadding.x - window->scrollPos.x, window->Pos.y + headerHeight + window->windowPadding.y - window->scrollPos.y);
+	window->cursorStartPos = vec2_t((float)start_pos_x, (float)start_pos_y);
+	window->cursorPosLossyness = vec2_t((float)(start_pos_x - window->cursorStartPos.x), (float)(start_pos_y - window->cursorStartPos.y));
 	window->cursorPos = window->cursorStartPos;
 	window->cursorPosPrevLine = window->cursorPos;
 	window->cursorMaxPos = window->cursorStartPos;
@@ -607,9 +855,9 @@ void menu::begin(const char* label)
 
 	g.currentWindow = window;
 
-	render::add_filled_rect(window->innerClipRect, style.colors[COL_BACKGROUND]);
+	render::add_filled_rect(window->innerClipRect, style.colors[COL_BACKGROUND], style.frameRounding, cornerFlags_Bot);
 
-	render::add_filled_rect(header_rect, style.colors[COL_ITEM_BACKGROUND]);
+	render::add_filled_rect(header_rect, style.colors[COL_ITEM_BACKGROUND], style.frameRounding, cornerFlags_Top);
 	render::add_text(label, headertext_rect, 1, vert_center | horz_left, .5f, .5f * ASPECT_RATIO, style.colors[COL_TEXT]);
 
 	render::push_clip(clip_rect);
@@ -685,7 +933,7 @@ bool menu::begin_tab_bar(const char* name)
 			current_tab->currentTabItem = tab_item;
 		}
 
-		render::add_filled_rect(tab_name_rect, current_tab->activeTabId == tab_id ? style.colors[COL_ITEM_ACTIVE] : style.colors[COL_ITEM_BACKGROUND]);
+		render::add_filled_rect(tab_name_rect, current_tab->activeTabId == tab_id ? style.colors[COL_ITEM_ACTIVE] : style.colors[COL_ITEM_BACKGROUND], g.style.frameRounding, cornerFlags_Top);
 		if (active) render::add_rect(tab_name_rect, 1, style.colors[COL_ACTIVE]);
 		render::add_text(tab_item->name, tab_name_rect, 1, vert_center | horz_center, .5f, .5f * ASPECT_RATIO, style.colors[COL_TEXT]);
 	}
@@ -743,6 +991,9 @@ bool menu::item_add(GRect rect, int id)
 	menu_context& g = *gMenuCtx;
 	menu_window& window = *g.currentWindow;
 
+	if (!rect.overlaps(GRect(g.currentWindow->innerClipRect)))
+		return false;
+
 	if (id != 0)
 	{
 		GBounds navBounds(rect);
@@ -778,9 +1029,6 @@ bool menu::item_add(GRect rect, int id)
 			window.rectRel = rect;
 		}
 	}
-
-	if (!rect.overlaps(GRect(g.currentWindow->innerClipRect)))
-		return false;
 
 	return true;
 }
@@ -906,7 +1154,7 @@ void menu::push_id(const char* name)
 	menu_window* window = get_current_window();
 	auto id = hash(name);
 	g.lastId = id;
-	g.idStack.push_back(id);
+	window->idStack.push_back(id);
 }
 
 void menu::push_id(int int_id)
@@ -915,14 +1163,13 @@ void menu::push_id(int int_id)
 	menu_window* window = get_current_window();
 	auto id = hash((char*)&int_id);
 	g.lastId = id;
-	g.idStack.push_back(id);
+	window->idStack.push_back(id);
 }
 
 void menu::pop_id()
 {
-	menu_context& g = *gMenuCtx;
 	menu_window* window = get_current_window();
-	g.idStack.pop_back();
+	window->idStack.pop_back();
 }
 
 vec2_t menu::calc_item_size(vec2_t size, float default_w, float default_h)
@@ -964,7 +1211,7 @@ bool menu::button(const char* label, vec2_t b_size)
 	if (!item_add(rect, id))
 		return false;
 
-	render::add_filled_rect(rect, style.colors[COL_ITEM_BACKGROUND]);
+	render::add_filled_rect(rect, style.colors[COL_ITEM_BACKGROUND], style.frameRounding, cornerFlags_all);
 	if (active) render::add_rect(rect, 1, style.colors[COL_ACTIVE]);
 	render::add_text(label, rect, 1, vert_center | horz_center, fontScale, fontScale * ASPECT_RATIO, style.colors[COL_TEXT]);
 
@@ -999,7 +1246,7 @@ bool menu::checkbox(const char* label, bool* value, vec2_t b_size)
 	if (!item_add(rect, id))
 		return false;
 
-	render::add_filled_rect(rect, *value ? style.colors[COL_ITEM_SLIDE] : style.colors[COL_ITEM_BACKGROUND]);
+	render::add_filled_rect(rect, *value ? style.colors[COL_ITEM_SLIDE] : style.colors[COL_ITEM_BACKGROUND], style.frameRounding, cornerFlags_all);
 	if(active) render::add_rect(rect, 1, style.colors[COL_ACTIVE]);
 	render::add_text(label, text_rect, 1, vert_center | horz_left, fontScale, fontScale * ASPECT_RATIO, style.colors[COL_TEXT]);
 
@@ -1036,7 +1283,9 @@ void menu::text(const char* label, ...)
 	GRect rect(window.cursorPos.x, window.cursorPos.y, size.x, size.y);
 
 	item_size(size);
-	item_add(rect, 0);
+	if(!item_add(rect, 0))
+		return;
+
 
 	render::add_text(buffer, rect, 1, vert_center | horz_left, fontScale, fontScale * ASPECT_RATIO, style.colors[COL_TEXT]);
 }
@@ -1082,7 +1331,6 @@ bool sliderBehaviorT(int data_type, TYPE* v, const TYPE v_min, const TYPE v_max,
 
 		if(data_type == DATA_TYPE_FLOAT)
 			input_delta *= 20.0f;
-
 
 		g.sliderCurrentAccum += input_delta;
 		g.sliderCurrentAccumDirty = true;
@@ -1140,8 +1388,6 @@ bool sliderBehaviorT(int data_type, TYPE* v, const TYPE v_min, const TYPE v_max,
 bool menu::slider_behaviour(void* value, int data_type, const char* format, const void* min, const void* max)
 {
 	menu_context& g = *gMenuCtx;
-	menu_style& style = g.style;
-	menu_window& window = *g.currentWindow;
 
 	if (!g.isActive)
 		return false;
@@ -1156,6 +1402,8 @@ bool menu::slider_behaviour(void* value, int data_type, const char* format, cons
 	case DATA_TYPE_INT:
 		return sliderBehaviorT<int, int, float>(data_type, (int*)value, *(const int*)min, *(const int*)max, format);
 	}
+
+	return false;
 }
 
 template<typename T>
@@ -1202,10 +1450,10 @@ bool menu::slider(const char* label, const char* fmt, T* values, int count, int 
 			modified = slider_behaviour((void*)&values[i], data_type, fmt, (const void*)&min, (const void*)&max);
 		}
 
-		render::add_filled_rect(rect, style.colors[COL_ITEM_BACKGROUND]);
+		render::add_filled_rect(rect, style.colors[COL_ITEM_BACKGROUND], style.frameRounding, cornerFlags_all);
 		if (active) render::add_rect(rect, 1, style.colors[COL_TEXT]);
 		if (values[i] != min)
-			render::add_filled_rect(rect_calc, style.colors[COL_ITEM_SLIDE]);
+			render::add_filled_rect(rect_calc, style.colors[COL_ITEM_SLIDE], style.frameRounding, cornerFlags_all);
 		render::add_text(str, rect, 1, vert_center | horz_center, fontScale, fontScale * ASPECT_RATIO, style.colors[COL_TEXT]);
 	}
 
@@ -1364,18 +1612,6 @@ void menu::update(void* arg)
 {
 	g_nav.new_frame();
 
-	//DrawText2D("test",
-	//	300, 300, 1.0,
-	//	globals::fontNormal, 1.0, 1.0,
-	//	0.0, 1.0, GfxColor(0xFFFFFFFF),
-	//	0x7FFFFFFF, 0, 0,
-	//	0, 0.0, GfxColor(0xFFFFFFFF),
-	//	0, 0, 0, 
-	//	0, 0, 0, 
-	//	0, 0);
-
-	//RB_EndTessSurface();
-
 	menu_context& g = *gMenuCtx;
 	menu_style& style = g.style;
 
@@ -1401,11 +1637,15 @@ void menu::update(void* arg)
 
 	text("window.Pos(%.1f, %.1f)", window.Pos.x, window.Pos.y);
 	text("window.Size(%.1f, %.1f)", window.Size.x, window.Size.y);
-	text("g.style.itemSpacing(%.1f, %.1f)", style.itemSpacing.x, style.itemSpacing.y);
 	text("g.style.framePadding(%.1f, %.1f)", style.framePadding.x, style.framePadding.y);
+	text("g.style.frameRounding(%.1f)", style.frameRounding);
+	text("g.style.itemSpacing(%.1f, %.1f)", style.itemSpacing.x, style.itemSpacing.y);
+	text("g.style.itemInnerSpacing(%.1f, %.1f)", style.itemInnerSpacing.x, style.itemInnerSpacing.y);
 
-	sliderf2("itemSpacing", style.itemSpacing, 0.5f, 0.0, 15.0f);
+	sliderf("frameRounding", &style.frameRounding, 0.5f, 0.0, 35.0f);
 	sliderf2("framePadding", style.framePadding, 0.5f, 0.0, 15.0f);
+	sliderf2("itemSpacing", style.itemSpacing, 0.5f, 0.0, 15.0f);
+	sliderf2("itemInnerSpacing", style.itemInnerSpacing, 0.5f, 0.0, 15.0f);
 
 	static float val3[2];
 	sliderf2("slider 3", val3, 1.0f, 0.0f, 1000.0f);
@@ -1469,11 +1709,44 @@ void menu::update(void* arg)
 
 	end();
 
+	//begin("hex memory");
+	//set_window_pos(g.currentWindow, 100, 100);
+	//set_window_size(g.currentWindow, 300, 400);
+
+	//text("very early test version");
+
+	//int index = 0;
+	//char value = 0;
+	//menu_list_clipper clipper;
+	//clipper.begin(10);         // We have 1000 elements, evenly spaced.
+	//while (clipper.step())
+	//{
+	//	for (int i = clipper.displayStart; i < clipper.displayEnd; i++)
+	//	{
+	//		char vb[16];
+	//		libpsutil::memory::get(0x10040000 + index, &vb, 1);
+
+	//		text("0x%08X: %*s", 0x10040000 + index, 16, "");
+	//		index++;
+	//	}
+	//}
+
+	//end();
+
 	end_frame();
 }
 
 void menu::start()
 {
+	g_materialCommands = reinterpret_cast<materialCommands_t*>(materialCommands_a);
+	g_materialCommands->indexCount = g_materialCommands->indexCount;
+
+	for (int i = 0; i < 12; i++)
+	{
+		const float a = ((float)i * 2 * M_PI) / (float)12;
+		circle_vtx_fast[i] = vec2_t(cosf(a), sinf(a));
+	}
+
 	create_context();
 
 	scheduler::schedule(update, 0u, scheduler::render);

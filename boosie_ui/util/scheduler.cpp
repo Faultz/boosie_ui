@@ -9,7 +9,7 @@ std::vector<scheduler::task>* scheduler::get_tasks(thread thread)
 	else return {};
 }
 
-void scheduler::schedule(menu_callback_t callback, uint64_t arg, uint64_t interval, scheduler::thread thread)
+void scheduler::schedule(menu_callback_t callback, uint32_t arg, uint64_t interval, scheduler::thread thread)
 {
 	scheduler::task task;
 	task.argument = arg;

@@ -14,18 +14,6 @@ struct opd_t
 opd_t** g_renderCommandTable = reinterpret_cast<opd_t**>(RenderCommandTable_t);
 materialCommands_t* g_materialCommands;
 
-void R_SetVertex4D(GfxVertex* vert, float x, float y, float z, float w, float s, float t, unsigned int color)
-{
-	vert->xyzw.x = x;
-	vert->xyzw.y = y;
-	vert->xyzw.z = z;
-	vert->xyzw.w = w;
-	vert->normal.packed = 1073643391;
-	vert->color.packed = color;
-	vert->texCoord.x = s;
-	vert->texCoord.y = t;
-}
-
 void add_vertex_data(int quadCount, std::uint16_t* indices, int& indexCount, unsigned int& vertCount, GfxVertex* vert, GfxQuadVertex*& verts)
 {
 	for (int i = 0; i < quadCount; i++)

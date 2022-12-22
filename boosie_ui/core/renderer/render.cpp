@@ -30,7 +30,7 @@ void render::scale_text(int& align, float& xScale, GRect& rect, float textWidth,
 	}
 }
 
-void render::add_text(const char* text, GRect rect, int style, int align, float xScale, float yScale, float* clr, float* underline_clr)
+void render::add_text(const char* text, GRect rect, int style, int align, float xScale, float yScale, float* clr)
 {
 	float m_iAdjustedX = 0.f;
 	float m_iAdjustedY = 0.f;
@@ -44,11 +44,15 @@ void render::add_text(const char* text, GRect rect, int style, int align, float 
 	scale_text(align, xScale, rect, textWidth, yScale, textHeight);
 	align_text(align, rect, textWidth, textHeight, &m_iAdjustedX, &m_iAdjustedY);
 
-	R_AddCmdDrawText(text, 0x7F, globals::fontNormal, m_iAdjustedX, m_iAdjustedY, xScale, yScale, 0.0f, clr, style);
+	if (align & background)
+	{
+		GRect back_rect(m_iAdjustedX - 2, m_iAdjustedY - textHeight - 2, textWidth + 4, textHeight + 4);
 
-	if (align & underline && underline_clr != color())
-		add_filled_rect(m_iAdjustedX, m_iAdjustedY + yScale, textWidth, 2.f, underline_clr);
+		add_rect(back_rect, 1, GColor(255, 255, 255, 255), 0.0f, 0);
+		add_filled_rect(back_rect, GColor(35, 35, 35), 0.0f, 0);
+	}
 
+	RB_AddText(text, 0x7F, globals::fontNormal, m_iAdjustedX, m_iAdjustedY, xScale, yScale, 0.0f, clr, style);
 }
 
 void render::add_text_with_effect(const char* text, GRect rect, int style, int align, float xScale, float yScale, float* clr, float* glow_clr)
@@ -65,9 +69,9 @@ void render::add_text_with_effect(const char* text, GRect rect, int style, int a
 	scale_text(align, xScale, rect, textWidth, yScale, textHeight);
 	align_text(align, rect, textWidth, textHeight, &m_iAdjustedX, &m_iAdjustedY);
 
-	R_AddCmdDrawText(text, 0x7F, globals::fontNormal, m_iAdjustedX, m_iAdjustedY, xScale, yScale, 0.0f, clr, style);
+	//R_AddCmdDrawText(text, 0x7F, globals::fontNormal, m_iAdjustedX, m_iAdjustedY, xScale, yScale, 0.0f, clr, style);
 
-	//R_AddCmdDrawTextWithEffects(text, 0x7F, globals::fontNormal, m_iAdjustedX, m_iAdjustedY, xScale, yScale, 0.0f, clr, style, glow_clr, nullptr, nullptr, 0, 0, 0, 0);
+	R_AddCmdDrawTextWithEffects(text, 0x7F, globals::fontNormal, m_iAdjustedX, m_iAdjustedY, xScale, yScale, 0.0f, clr, style, glow_clr, nullptr, nullptr, 0, 0, 0, 0);
 }
 
 void render::add_outline_rect(float x, float y, float width, float height, float* color, float thickness)
@@ -78,39 +82,42 @@ void render::add_outline_rect(float x, float y, float width, float height, float
 	R_AddCmdDrawStretchPic(x + width, y - thickness, thickness, height + (thickness * 2), 0, 0, 1, 1, color, globals::gameWhite); // Right>
 }
 
-void render::add_rect(vec2_t pos, vec2_t size, float thickness, float* clr)
+void render::add_rect(vec2_t pos, vec2_t size, float thickness, float* clr, float rounding, int flags)
 {
 	if (thickness == 0.f)
 		return;
 
-	add_outline_rect(pos.x, pos.y, size.x, size.y, clr, thickness);
+	RB_AddRect(pos.x, pos.y, size.x, size.y, clr, rounding, flags, thickness);
 }
-void render::add_rect(float x, float y, float w, float h, float thickness, float* clr)
+void render::add_rect(float x, float y, float w, float h, float thickness, float* clr, float rounding, int flags)
 {
 	if (thickness == 0.f)
 		return;
 
-	add_outline_rect(x, y, w, h, clr, thickness);
+	RB_AddRect(x, y, w, h, clr, rounding, flags, thickness);
 }
-void render::add_rect(GRect rect, float thickness, float* clr)
+void render::add_rect(GRect rect, float thickness, float* clr, float rounding, int flags)
 {
 	if (thickness == 0.f)
 		return;
 
-	add_outline_rect(rect.x, rect.y, rect.w, rect.h, clr, thickness);
+	RB_AddRect(rect.x, rect.y, rect.w, rect.h, clr, rounding, flags, thickness);
 }
 
-void render::add_filled_rect(vec2_t pos, vec2_t size, float* clr)
+void render::add_filled_rect(vec2_t pos, vec2_t size, float* clr, float rounding, int flags)
 {
-	R_AddCmdDrawStretchPic(pos.x, pos.y, size.x, size.y, 0, 0, 1, 1, clr, globals::gameWhite);
+	RB_AddRectFilled(pos.x, pos.y, size.x, size.y, clr, rounding, flags);
+	//R_AddCmdDrawStretchPic(pos.x, pos.y, size.x, size.y, 0, 0, 1, 1, clr, globals::gameWhite);
 }
-void render::add_filled_rect(float x, float y, float w, float h, float* clr)
+void render::add_filled_rect(float x, float y, float w, float h, float* clr, float rounding, int flags)
 {
-	R_AddCmdDrawStretchPic(x, y, w, h, 0, 0, 1, 1, clr, globals::gameWhite);
+	RB_AddRectFilled(x, y, w, h, clr, rounding, flags);
+	//R_AddCmdDrawStretchPic(x, y, w, h, 0, 0, 1, 1, clr, globals::gameWhite);
 }
-void render::add_filled_rect(GRect rect, float* clr)
+void render::add_filled_rect(GRect rect, float* clr, float rounding, int flags)
 {
-	R_AddCmdDrawStretchPic(rect.x, rect.y, rect.w, rect.h, 0, 0, 1, 1, clr, globals::gameWhite);
+	RB_AddRectFilled(rect.x, rect.y, rect.w, rect.h, clr, rounding, flags);
+	//R_AddCmdDrawStretchPic(rect.x, rect.y, rect.w, rect.h, 0, 0, 1, 1, clr, globals::gameWhite);
 }
 
 void render::add_filled_rect_multi(GRect rect, color clr1, color clr2, color clr3, color clr4)

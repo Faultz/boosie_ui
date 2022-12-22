@@ -1,5 +1,18 @@
 #pragma once
 
+enum corner_flags_t
+{
+	cornerFlags_topLeft = 1 << 0,
+	cornerFlags_topRight = 1 << 1,
+	cornerFlags_botLeft = 1 << 2,
+	cornerFlags_botRight = 1 << 3,
+	cornerFlags_Top = cornerFlags_topLeft | cornerFlags_topRight,
+	cornerFlags_Bot = cornerFlags_botLeft | cornerFlags_botRight,
+	cornerFlags_Left = cornerFlags_topLeft | cornerFlags_botLeft,
+	cornerFlags_Right = cornerFlags_topRight | cornerFlags_botRight,
+	cornerFlags_all = 0xF
+};
+
 struct pointer_t
 {
 	template<class T>
