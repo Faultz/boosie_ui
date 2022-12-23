@@ -17,6 +17,9 @@
 #define Com_Sprintf_t 0x027E2F8
 #define DB_GetAllXAssetOfType_t 0x025ED50
 #define DB_FindXAssetHeader_t 0x011D1D8
+#define DrawText2D_t 0x038B348
+#define R_AddCmdDrawTextWithEffects_t 0x04C7258
+#define R_ConvertColor_t 0x37FB48
 
 #define R_AddCmdSetScissorRect_t 0x04C7A88
 #define R_AddCmdClearScissorRect_t 0x04C7A78
@@ -50,22 +53,20 @@ static symbol<void(const char* text, unsigned int maxChars, Font* font, float x,
 static symbol<int(const char* text, int maxChars, Font* font)> R_TextWidth{ R_TextWidth_t };
 static symbol<Material* (const char* name, int imageTrack)> Material_RegisterHandle{ Material_RegisterHandle_t };
 static symbol<Font* (const char* text, int track)> R_RegisterFont{ R_RegisterFont_t };
-
-static symbol<void()> RB_TessOverflow{ RB_TessOverflow_t, TOC_2 };
-static symbol<void()> RB_EndTessSurface{ RB_EndTessSurface_t, TOC_2 };
-static symbol<void(Material*, int)> R_SetTessMaterial{ R_SetTessMaterial_t, TOC_2 };
-static symbol<void* (int cmd, int size)> R_GetCommandBuffer{ R_GetCommandBuffer_t, TOC_2 };
-
 static symbol<void(const char* text,
 	float x, float y,
 	Font* font, float xScale, float yScale,
 	float sinAngle, float cosAngle, unsigned int color,
 	int maxLength, int renderFlags, int cursorPos,
 	char cursorLetter, float padding, unsigned int glowForcedColor,
-	int fxBirthTime, int fxLetterTime, int fxDecayStartTime, 
+	int fxBirthTime, int fxLetterTime, int fxDecayStartTime,
 	int fxDecayDuration, int fxRedactDecayStartTime, int fxRedactDecayDuration,
-	Material* fxMaterial, Material* fxMaterialGlow)> DrawText2D{ 0x038B348, TOC_2 };
+	Material* fxMaterial, Material* fxMaterialGlow)> DrawText2D{ DrawText2D_t, TOC_2 };
+static symbol<void(const char* text, int maxChars, Font* font, float x, float y, float xScale, float yScale, float rotation, const float* color, int style, const float* glowColor, Material* fxMaterial, Material* fxMaterialGlow, int fxBirthTime, int fxLetterTime, int fxDecayStartTime, int fxDecayDuration)> R_AddCmdDrawTextWithEffects{ R_AddCmdDrawTextWithEffects_t };
+static symbol<void(float*, uint32_t*)> R_ConvertColor{ R_ConvertColor_t, TOC_2 };
 
-static symbol<void(const char* text, int maxChars, Font* font, float x, float y, float xScale, float yScale, float rotation, const float* color, int style, const float* glowColor, Material* fxMaterial, Material* fxMaterialGlow, int fxBirthTime, int fxLetterTime, int fxDecayStartTime, int fxDecayDuration)> R_AddCmdDrawTextWithEffects{ 0x04C7258 };
 
-static symbol<void(float*, uint32_t*)> R_ConvertColor{ 0x37FB48, TOC_2 };
+static symbol<void()> RB_TessOverflow{ RB_TessOverflow_t, TOC_2 };
+static symbol<void()> RB_EndTessSurface{ RB_EndTessSurface_t, TOC_2 };
+static symbol<void(Material*, int)> R_SetTessMaterial{ R_SetTessMaterial_t, TOC_2 };
+static symbol<void* (int cmd, int size)> R_GetCommandBuffer{ R_GetCommandBuffer_t, TOC_2 };
