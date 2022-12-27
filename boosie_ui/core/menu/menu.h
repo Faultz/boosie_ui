@@ -21,7 +21,6 @@ enum menu_colors
 	COL_ITEM_SLIDE,
 	COL_ACTIVE,
 	COL_TEXT,
-	COL_TEXT_ACTIVE,
 	COL_MAX
 };
 
@@ -171,6 +170,12 @@ struct menu_list_clipper_data
 	void reset(menu_list_clipper* clipper) { listClipper = clipper; stepNo = itemsFrozen = 0; Ranges.resize(0); }
 };
 
+struct menu_popup
+{
+	menu_id popupId;
+	int popupIdx;
+};
+
 class menu_window
 {
 public:
@@ -264,7 +269,6 @@ public:
 		colors[COL_ITEM_SLIDE] = color(139, 137, 224, 255);
 		colors[COL_ACTIVE] = color(255, 255, 255, 255);
 		colors[COL_TEXT] = color(255, 255, 255, 255);
-		colors[COL_TEXT_ACTIVE] = color(200, 230, 200, 255);
 	}
 
 	vec2_t itemSpacing;
@@ -301,6 +305,7 @@ public:
 		navResults = menu_nav_results();
 		style = menu_style();
 		colModifiers = vector<menu_col_mod>();
+		openPopupStack = vector<menu_popup>();
 		windowMap = map<menu_id, menu_window*>();
 	}
 	~menu_context()
@@ -341,6 +346,7 @@ public:
 
 	menu_style style;
 	vector<menu_col_mod> colModifiers;
+	vector<menu_popup> openPopupStack;
 	map<menu_id, menu_window*> windowMap;
 
 	void createNavRequest(menu_nav_dir navDir) 
@@ -397,6 +403,8 @@ namespace menu
 	void new_frame();
 
 	menu_id get_id(const char* label, const char* str_end = nullptr);
+	menu_id get_id(int n);
+
 	void set_active_id(menu_id id);
 
 	menu_window* get_current_window();
@@ -446,6 +454,10 @@ namespace menu
 	void push_id(int int_id);
 	void pop_id();
 
+	bool is_popup_open(menu_id id);
+	void open_popup(menu_id id, int index = 0);
+	void close_popup(menu_id id);
+
 	vec2_t calc_item_size(vec2_t size, float default_w, float default_h);
 
 	bool button(const char* label, vec2_t b_size = vec2_t());
@@ -462,14 +474,16 @@ namespace menu
 
 	template<typename T = float> bool slider(const char* label, const char* fmt, T* values, int count, int data_type, T min, T max);
 
-	bool sliderf(const char* label, float* value, float inc, float min, float max, vec2_t b_size = vec2_t());
-	bool sliderf2(const char* label, float* values, float inc, float min, float max, vec2_t b_size = vec2_t());
-	bool sliderf3(const char* label, float* values, float inc, float min, float max, vec2_t b_size = vec2_t());
-	bool sliderf4(const char* label, float* values, float inc, float min, float max, vec2_t b_size = vec2_t());
-	bool slideru(const char* label, int* value, int inc, int min, int max, vec2_t b_size = vec2_t());
-	bool slideru2(const char* label, int* values, int inc, int min, int max, vec2_t b_size = vec2_t());
-	bool slideru3(const char* label, int* values, int inc, int min, int max, vec2_t b_size = vec2_t());
-	bool slideru4(const char* label, int* values, int inc, int min, int max, vec2_t b_size = vec2_t());
+	bool sliderf(const char* label, float* value, float min, float max, vec2_t b_size = vec2_t());
+	bool sliderf2(const char* label, float* values, float min, float max, vec2_t b_size = vec2_t());
+	bool sliderf3(const char* label, float* values, float min, float max, vec2_t b_size = vec2_t());
+	bool sliderf4(const char* label, float* values, float min, float max, vec2_t b_size = vec2_t());
+	bool slideru(const char* label, int* value, int min, int max, vec2_t b_size = vec2_t());
+	bool slideru2(const char* label, int* values, int min, int max, vec2_t b_size = vec2_t());
+	bool slideru3(const char* label, int* values, int min, int max, vec2_t b_size = vec2_t());
+	bool slideru4(const char* label, int* values, int min, int max, vec2_t b_size = vec2_t());
+
+	bool combo(const char* label, int* index, std::vector<std::string> data, vec2_t b_size = vec2_t());
 
 	void end_frame();
 

@@ -45,7 +45,7 @@ menu_id hash_data(const void* data_p, size_t data_size, uint32_t seed)
 // - If we reach ### in the string we discard the hash so far and reset to the seed.
 // - We don't do 'current += 2; continue;' after handling ### to keep the code smaller/faster (measured ~10% diff in Debug build)
 // FIXME-OPT: Replace with e.g. FNV1a hash? CRC32 pretty much randomly access 1KB. Need to do proper measurements.
-menu_id hash_str(const char* data_p, size_t data_size, uint32_t seed)
+menu_id hash_str(const void* data_p, size_t data_size, uint32_t seed)
 {
 	seed = ~seed;
 	uint32_t crc = seed;
@@ -737,7 +737,7 @@ void menu::new_frame()
 	g.time += g.deltaTime;
 	g.frameCount += 1;
 
-	if (g.currentWindow)
+	if (g.currentWindow && g.currentWindow->contentSize.y > g.currentWindow->innerClipRect.h)
 	{
 		if (g.moveNavDir == NAV_DIR_DOWN || g.moveNavDir == NAV_DIR_UP && g.currentWindow->contentSize.y > g.currentWindow->innerClipRect.h)
 		{
@@ -772,7 +772,7 @@ void menu::new_frame()
 
 	}
 
-	if (!g.isActive)
+	if (!g.isActive && !g.openPopupStack.Size)
 	{
 		if (is_down(NAV_DPAD_DOWN, 1.0)) g.createNavRequest(NAV_DIR_DOWN);
 		if (is_down(NAV_DPAD_UP, 1.0)) g.createNavRequest(NAV_DIR_UP);
@@ -792,6 +792,16 @@ menu_id menu::get_id(const char* label, const char* str_end)
 
 	menu_id seed = window.idStack.back();
 	menu_id id = hash_str(label, str_end ? (str_end - label) : 0, seed);
+	return id;
+}
+
+menu_id menu::get_id(int n)
+{
+	menu_context& g = *gMenuCtx;
+	menu_window& window = *g.currentWindow;
+
+	menu_id seed = window.idStack.back();
+	menu_id id = hash_str(&n, sizeof(n), seed);
 	return id;
 }
 
@@ -1152,7 +1162,7 @@ void menu::push_id(const char* name)
 {
 	menu_context& g = *gMenuCtx;
 	menu_window* window = get_current_window();
-	auto id = hash(name);
+	auto id = get_id(name);
 	g.lastId = id;
 	window->idStack.push_back(id);
 }
@@ -1161,7 +1171,7 @@ void menu::push_id(int int_id)
 {
 	menu_context& g = *gMenuCtx;
 	menu_window* window = get_current_window();
-	auto id = hash((char*)&int_id);
+	auto id = get_id((char*)&int_id);
 	g.lastId = id;
 	window->idStack.push_back(id);
 }
@@ -1170,6 +1180,37 @@ void menu::pop_id()
 {
 	menu_window* window = get_current_window();
 	window->idStack.pop_back();
+}
+
+bool menu::is_popup_open(menu_id id)
+{
+	menu_context& g = *gMenuCtx;
+	for (int i = 0; i < g.openPopupStack.Size; i++)
+		if (g.openPopupStack[i].popupId == id)
+			return true;
+
+	return false;
+}
+
+void menu::open_popup(menu_id id, int index)
+{
+	menu_context& g = *gMenuCtx;
+
+	menu_popup popup_ref;
+	popup_ref.popupId = id;
+	popup_ref.popupIdx = index == 0 ? 0 : index;
+	g.openPopupStack.push_back(popup_ref);
+}
+
+void menu::close_popup(menu_id id)
+{
+	menu_context& g = *gMenuCtx;
+
+	for (int i = 0; i < g.openPopupStack.size(); i++)
+	{
+		if(g.openPopupStack[i].popupId == id)
+			g.openPopupStack.erase(g.openPopupStack.begin() + i);
+	}
 }
 
 vec2_t menu::calc_item_size(vec2_t size, float default_w, float default_h)
@@ -1285,7 +1326,6 @@ void menu::text(const char* label, ...)
 	item_size(size);
 	if(!item_add(rect, 0))
 		return;
-
 
 	render::add_text(buffer, rect, 1, vert_center | horz_left, fontScale, fontScale * ASPECT_RATIO, style.colors[COL_TEXT]);
 }
@@ -1460,7 +1500,7 @@ bool menu::slider(const char* label, const char* fmt, T* values, int count, int 
 	return modified;
 }
 
-bool menu::sliderf(const char* label, float* value, float inc, float min, float max, vec2_t b_size)
+bool menu::sliderf(const char* label, float* value, float min, float max, vec2_t b_size)
 {
 	menu_context& g = *gMenuCtx;
 	menu_window& window = *g.currentWindow;
@@ -1470,12 +1510,15 @@ bool menu::sliderf(const char* label, float* value, float inc, float min, float 
 	same_line();
 
 	if (!(window.itemFlags & ITEM_FLAG_SLIDER_NO_TEXT))
+	{
+		same_line();
 		text(label);
+	}
 
 	return edited;
 }
 
-bool menu::sliderf2(const char* label, float* values, float inc, float min, float max, vec2_t b_size)
+bool menu::sliderf2(const char* label, float* values, float min, float max, vec2_t b_size)
 {
 	menu_context& g = *gMenuCtx;
 	menu_window& window = *g.currentWindow;
@@ -1485,12 +1528,15 @@ bool menu::sliderf2(const char* label, float* values, float inc, float min, floa
 	same_line();
 
 	if (!(window.itemFlags & ITEM_FLAG_SLIDER_NO_TEXT))
+	{
+		same_line();
 		text(label);
+	}
 
 	return edited;
 }
 
-bool menu::sliderf3(const char* label, float* values, float inc, float min, float max, vec2_t b_size)
+bool menu::sliderf3(const char* label, float* values, float min, float max, vec2_t b_size)
 {
 	menu_context& g = *gMenuCtx;
 	menu_window& window = *g.currentWindow;
@@ -1500,12 +1546,15 @@ bool menu::sliderf3(const char* label, float* values, float inc, float min, floa
 	same_line();
 
 	if (!(window.itemFlags & ITEM_FLAG_SLIDER_NO_TEXT))
+	{
+		same_line();
 		text(label);
+	}
 
 	return edited;
 }
 
-bool menu::sliderf4(const char* label, float* values, float inc, float min, float max, vec2_t b_size)
+bool menu::sliderf4(const char* label, float* values, float min, float max, vec2_t b_size)
 {
 	menu_context& g = *gMenuCtx;
 	menu_window& window = *g.currentWindow;
@@ -1515,12 +1564,15 @@ bool menu::sliderf4(const char* label, float* values, float inc, float min, floa
 	same_line();
 
 	if (!(window.itemFlags & ITEM_FLAG_SLIDER_NO_TEXT))
+	{
+		same_line();
 		text(label);
+	}
 
 	return edited;
 }
 
-bool menu::slideru(const char* label, int* value, int inc, int min, int max, vec2_t b_size)
+bool menu::slideru(const char* label, int* value, int min, int max, vec2_t b_size)
 {
 	menu_context& g = *gMenuCtx;
 	menu_window& window = *g.currentWindow;
@@ -1530,13 +1582,16 @@ bool menu::slideru(const char* label, int* value, int inc, int min, int max, vec
 	same_line();
 
 	if (!(window.itemFlags & ITEM_FLAG_SLIDER_NO_TEXT))
+	{
+		same_line();
 		text(label);
+	}
 
 	return edited;
 }
 
 
-bool menu::slideru2(const char* label, int* values, int inc, int min, int max, vec2_t b_size)
+bool menu::slideru2(const char* label, int* values, int min, int max, vec2_t b_size)
 {
 	menu_context& g = *gMenuCtx;
 	menu_window& window = *g.currentWindow;
@@ -1546,12 +1601,15 @@ bool menu::slideru2(const char* label, int* values, int inc, int min, int max, v
 	same_line();
 
 	if (!(window.itemFlags & ITEM_FLAG_SLIDER_NO_TEXT))
+	{
+		same_line();
 		text(label);
+	}
 
 	return edited;
 }
 
-bool menu::slideru3(const char* label, int* values, int inc, int min, int max, vec2_t b_size)
+bool menu::slideru3(const char* label, int* values, int min, int max, vec2_t b_size)
 {
 	menu_context& g = *gMenuCtx;
 	menu_window& window = *g.currentWindow;
@@ -1561,26 +1619,120 @@ bool menu::slideru3(const char* label, int* values, int inc, int min, int max, v
 	same_line();
 
 	if (!(window.itemFlags & ITEM_FLAG_SLIDER_NO_TEXT))
+	{
+		same_line();
 		text(label);
+	}
 
 	return edited;
 }
 
-bool menu::slideru4(const char* label, int* values, int inc, int min, int max, vec2_t b_size)
+bool menu::slideru4(const char* label, int* values, int min, int max, vec2_t b_size)
 {
 	menu_context& g = *gMenuCtx;
 	menu_window& window = *g.currentWindow;
 
 	bool edited = slider(label, "%u/%u", values, 4, DATA_TYPE_INT, min, max);
 
-	same_line();
 
 	if (!(window.itemFlags & ITEM_FLAG_SLIDER_NO_TEXT))
+	{
+		same_line();
 		text(label);
-
+	}
 	return edited;
 }
 
+bool menu::combo(const char* label, int* index, std::vector<std::string> data, vec2_t b_size)
+{
+	menu_context& g = *gMenuCtx;
+	menu_style& style = g.style;
+	menu_window& window = *g.currentWindow;
+
+	auto id = get_id(label);
+
+	bool modified = false;
+	const int height = 10 * ASPECT_RATIO;
+	const float fontScale = window.globalFontScale;
+
+	const bool active = g.activeId == id;
+
+	vec2_t size = calc_item_size(vec2_t(), 360.f + (g.style.framePadding.x * 2.0f), (height + 10) + (g.style.framePadding.y * 2.0f));
+
+	GRect rect(window.cursorPos.x, window.cursorPos.y, size.x, size.y);
+	GRect text_rect(window.cursorPos.x + 5.f, window.cursorPos.y, size.x - 10.f, size.y);
+
+	item_size(size);
+	if (!item_add(rect, id))
+		return false;
+
+	render::add_filled_rect(rect, style.colors[COL_ITEM_BACKGROUND], style.frameRounding, cornerFlags_all);
+	render::add_text(data[*index].data(), text_rect, 1, vert_center | horz_left, fontScale, fontScale * ASPECT_RATIO, style.colors[COL_TEXT]);
+
+	same_line();
+	text(label);
+
+	if (active)
+	{
+		auto draw_list = overlay_drawlist;
+
+		bool open = is_popup_open(id);
+		if (!open && is_down(NAV_ACTIVATE, 1.f))
+		{
+			open_popup(id, *index);
+		}
+
+		if (open)
+		{
+			menu_popup& popup = g.openPopupStack.back();
+
+			if (is_pressed(NAV_BACK))
+				close_popup(id);
+
+			if (is_pressed(NAV_ACTIVATE))
+			{
+				*index = popup.popupIdx;
+				modified = true;
+
+				close_popup(id);
+			}
+			int& idx = popup.popupIdx;
+			int count = data.size() - 1;
+
+			if (is_pressed(NAV_DPAD_DOWN))
+			{
+				if (idx == count)
+					idx = 0;
+				else
+					idx++;
+			}
+			else if(is_pressed(NAV_DPAD_UP))
+			{
+				if (idx == 0)
+					idx = data.size() - 1;
+				else
+					idx--;
+			}
+
+			GRect full_combo_rect(rect.x, rect.y + size.y, size.x, size.y * data.size());
+
+			draw_list->add_filled_rect(full_combo_rect, g.style.colors[COL_BACKGROUND]);
+			for (int i = 0; i < data.size(); i++)
+			{
+				text_rect = GRect(full_combo_rect.x + 5.f, full_combo_rect.y + (i * size.y), size.x - 10.f, size.y);
+				GRect combo_rect(full_combo_rect.x, full_combo_rect.y + (i * size.y), size.x, size.y);
+
+
+				if (idx == i)
+					draw_list->add_filled_rect(combo_rect, g.style.colors[COL_ITEM_BACKGROUND]);
+				
+				draw_list->add_text(text_rect, data[i].data(), vert_center | horz_left, fontScale, fontScale * ASPECT_RATIO, g.style.colors[COL_TEXT]);
+			}
+		}
+	}
+
+	return modified;
+}
 
 void menu::end_frame()
 {
@@ -1621,7 +1773,7 @@ void menu::update(void* arg)
 	if (!g.open)
 		return;
 
-	if (!g.isActive && is_down(NAV_BACK, 1.f))
+	if (!g.isActive && is_down(NAV_BACK, 1.f) && !g.openPopupStack.Size)
 		g.open = false;
 
 	new_frame();
@@ -1642,30 +1794,34 @@ void menu::update(void* arg)
 	text("g.style.itemSpacing(%.1f, %.1f)", style.itemSpacing.x, style.itemSpacing.y);
 	text("g.style.itemInnerSpacing(%.1f, %.1f)", style.itemInnerSpacing.x, style.itemInnerSpacing.y);
 
-	sliderf("frameRounding", &style.frameRounding, 0.5f, 0.0, 35.0f);
-	sliderf2("framePadding", style.framePadding, 0.5f, 0.0, 15.0f);
-	sliderf2("itemSpacing", style.itemSpacing, 0.5f, 0.0, 15.0f);
-	sliderf2("itemInnerSpacing", style.itemInnerSpacing, 0.5f, 0.0, 15.0f);
+	static int combo_test;
+	combo("combo", &combo_test, { "bonk", "fuck" });
+
+	sliderf("fontScale", &window.globalFontScale, 0.3f, 2.0f);
+
+	sliderf("frameRounding", &style.frameRounding, 0.0, 35.0f);
+	sliderf2("framePadding", style.framePadding, 0.0, 15.0f);
+	sliderf2("itemSpacing", style.itemSpacing, 0.0, 15.0f);
+	sliderf2("itemInnerSpacing", style.itemInnerSpacing, 0.0, 15.0f);
 
 	static float val3[2];
-	sliderf2("slider 3", val3, 1.0f, 0.0f, 1000.0f);
+	sliderf2("slider 3", val3, 0.0f, 1000.0f);
 
 	static int i_size;
-	slideru("label", &i_size, 0, 0, 100);
+	slideru("label", &i_size, 0, 100);
 
 	static float val;
-	sliderf("slider 1", &val, 1.0f, 0.0f, 100.0f);
+	sliderf("slider 1", &val, 0.0f, 100.0f);
 
 	if (begin_tab_bar("settings#bar"))
 	{
 		if (begin_tab_item("settings"))
 		{
-			sliderf4("Background color", style.colors[COL_BACKGROUND], .03f, 0.f, 1.f);
-			sliderf4("Item color", style.colors[COL_ITEM_BACKGROUND], .03f, 0.f, 1.f);
-			sliderf4("Active color", style.colors[COL_ACTIVE], .03f, 0.f, 1.f);
-			sliderf4("Active slider color", style.colors[COL_ITEM_SLIDE], .03f, 0.f, 1.f);
-			sliderf4("Text color", style.colors[COL_TEXT], .03f, 0.f, 1.f);
-			sliderf4("Active text color", style.colors[COL_TEXT_ACTIVE], .03f, 0.f, 1.f);
+			sliderf4("Background color", style.colors[COL_BACKGROUND], 0.f, 1.f);
+			sliderf4("Item color", style.colors[COL_ITEM_BACKGROUND], 0.f, 1.f);
+			sliderf4("Active color", style.colors[COL_ACTIVE], 0.f, 1.f);
+			sliderf4("Active slider color", style.colors[COL_ITEM_SLIDE], 0.f, 1.f);
+			sliderf4("Text color", style.colors[COL_TEXT], 0.f, 1.f);
 
 			static bool v;
 			checkbox("new checkbox", &v);
@@ -1683,7 +1839,7 @@ void menu::update(void* arg)
 				if (begin_tab_item("new item2"))
 				{
 					button("tab_item 12");
-					sliderf4("Color background2", style.colors[COL_BACKGROUND], .03f, 0.f, 1.f);
+					sliderf4("Color background2", style.colors[COL_BACKGROUND], 0.f, 1.f);
 
 					end_tab_item();
 				}

@@ -52,7 +52,8 @@ void render::add_text(const char* text, GRect rect, int style, int align, float 
 		add_filled_rect(back_rect, GColor(35, 35, 35), 0.0f, 0);
 	}
 
-	RB_AddText(text, 0x7F, globals::fontNormal, m_iAdjustedX, m_iAdjustedY, xScale, yScale, 0.0f, clr, style);
+	//RB_AddText(text, 0x7F, globals::fontNormal, m_iAdjustedX, m_iAdjustedY, xScale, yScale, 0.0f, clr, style);
+	R_AddCmdDrawText(text, 0x7F, globals::fontNormal, m_iAdjustedX, m_iAdjustedY, xScale, yScale, 0.0f, clr, style);
 }
 
 void render::add_text_with_effect(const char* text, GRect rect, int style, int align, float xScale, float yScale, float* clr, float* glow_clr)
@@ -87,37 +88,40 @@ void render::add_rect(vec2_t pos, vec2_t size, float thickness, float* clr, floa
 	if (thickness == 0.f)
 		return;
 
-	RB_AddRect(pos.x, pos.y, size.x, size.y, clr, rounding, flags, thickness);
+	add_outline_rect(pos.x, pos.y, size.x, size.y, clr, thickness);
+	//RB_AddRect(pos.x, pos.y, size.x, size.y, clr, rounding, flags, thickness);
 }
 void render::add_rect(float x, float y, float w, float h, float thickness, float* clr, float rounding, int flags)
 {
 	if (thickness == 0.f)
 		return;
 
-	RB_AddRect(x, y, w, h, clr, rounding, flags, thickness);
+	add_outline_rect(x, y, w, h, clr, thickness);
+	//RB_AddRect(x, y, w, h, clr, rounding, flags, thickness);
 }
 void render::add_rect(GRect rect, float thickness, float* clr, float rounding, int flags)
 {
 	if (thickness == 0.f)
 		return;
 
-	RB_AddRect(rect.x, rect.y, rect.w, rect.h, clr, rounding, flags, thickness);
+	add_outline_rect(rect.x, rect.y, rect.w, rect.h, clr, thickness);
+	//RB_AddRect(rect.x, rect.y, rect.w, rect.h, clr, rounding, flags, thickness);
 }
 
 void render::add_filled_rect(vec2_t pos, vec2_t size, float* clr, float rounding, int flags)
 {
-	RB_AddRectFilled(pos.x, pos.y, size.x, size.y, clr, rounding, flags);
-	//R_AddCmdDrawStretchPic(pos.x, pos.y, size.x, size.y, 0, 0, 1, 1, clr, globals::gameWhite);
+	//RB_AddRectFilled(pos.x, pos.y, size.x, size.y, clr, rounding, flags);
+	R_AddCmdDrawStretchPic(pos.x, pos.y, size.x, size.y, 0, 0, 1, 1, clr, globals::gameWhite);
 }
 void render::add_filled_rect(float x, float y, float w, float h, float* clr, float rounding, int flags)
 {
-	RB_AddRectFilled(x, y, w, h, clr, rounding, flags);
-	//R_AddCmdDrawStretchPic(x, y, w, h, 0, 0, 1, 1, clr, globals::gameWhite);
+	//RB_AddRectFilled(x, y, w, h, clr, rounding, flags);
+	R_AddCmdDrawStretchPic(x, y, w, h, 0, 0, 1, 1, clr, globals::gameWhite);
 }
 void render::add_filled_rect(GRect rect, float* clr, float rounding, int flags)
 {
-	RB_AddRectFilled(rect.x, rect.y, rect.w, rect.h, clr, rounding, flags);
-	//R_AddCmdDrawStretchPic(rect.x, rect.y, rect.w, rect.h, 0, 0, 1, 1, clr, globals::gameWhite);
+	//RB_AddRectFilled(rect.x, rect.y, rect.w, rect.h, clr, rounding, flags);
+	R_AddCmdDrawStretchPic(rect.x, rect.y, rect.w, rect.h, 0, 0, 1, 1, clr, globals::gameWhite);
 }
 
 void render::add_filled_rect_multi(GRect rect, color clr1, color clr2, color clr3, color clr4)
@@ -168,30 +172,30 @@ void render::add_filled_rect_multi(GRect rect, float s0, float t0, float s1, flo
 	};
 	//R_AddCmdDrawQuad(m_QuadPos, m_clrTable[0], Material_RegisterHandle("master_prestige_01", 7));
 
-	R_AddCmdDrawQuadMulti(m_QuadPos, m_clrTable, 0, 0, 1, 1, 90, Material_RegisterHandle("master_prestige_01", 7));
+	R_AddCmdDrawQuadMulti(m_QuadPos, m_clrTable, 0, 0, 1, 1, 90, Material_RegisterHandle("white", 7, false, -1));
 }
 
 bool render::push_clip(GRect rect)
 {
-	auto clip_cmd_ptr = R_AddCmdSetScissorRect(static_cast<int>(rect.x), static_cast<int>(rect.y), static_cast<int>(rect.w), static_cast<int>(rect.h));
+	auto clip_cmd_ptr = R_AddCmdSetScissorRect(true, static_cast<int>(rect.x), static_cast<int>(rect.y), static_cast<int>(rect.w), static_cast<int>(rect.h));
 	return clip_cmd_ptr != nullptr;
 }
 
 void render::pop_clip()
 {
-	R_AddCmdClearScissorRect();
+	R_AddCmdSetScissorRect(false, 0, 0, 0, 0);
 }
 
 void render::read_text_size(const char* text, float& width, float& height, float xScale, float yScale)
 {
-	width = R_TextWidth(text, strlen(text), globals::fontNormal) * xScale;
+	width = R_TextWidth(0, text, strlen(text), globals::fontNormal) * xScale;
 	height = globals::fontNormal->pixelHeight * yScale;
 }
 
 float render::get_text_width(const char* text, float xScale)
 {
 	xScale /= 1.1f;
-	return R_TextWidth(text, strlen(text), globals::fontNormal) * xScale;
+	return R_TextWidth(0, text, strlen(text), globals::fontNormal) * xScale;
 }
 
 float render::get_text_height(const char* text, float yScale)

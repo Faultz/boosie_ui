@@ -50,7 +50,7 @@ void RB_DrawQuadList2D(GfxRenderCommandExecState* execState)
 
 	int quadCount = cmd->quadCount;
 
-	R_SetTessMaterial(cmd->material, 4);
+	R_SetTessMaterial(cmd->material, 2, 8);
 
 	if (((vertCount * quadCount) + 4) > 0x800 || ((indexCount * quadCount) + 6) > 0xC00)
 	{
@@ -99,7 +99,7 @@ void RB_DrawQuadPic(GfxRenderCommandExecState* execState)
 			rotated_positions[i].y = cmd->verts[i].x * rotation_matrix.m[1][0] + cmd->verts[i].y * rotation_matrix.m[1][1];
 		}
 
-		R_SetTessMaterial(cmd->material, 4);
+		R_SetTessMaterial(cmd->material, 2, 8);
 
 		if ((vertCount + 4) > 0x800 || (indexCount + 6) > 0xC00)
 		{
@@ -140,10 +140,10 @@ void renderables::start()
 	g_materialCommands = reinterpret_cast<materialCommands_t*>(materialCommands_a);
 	g_materialCommands->indexCount = g_materialCommands->indexCount;
 
-	RB_DrawQuadPic_d = new detour(g_renderCommandTable[RB_DrawQuadPic_id_t]->address, RB_DrawQuadPic);
+	//RB_DrawQuadPic_d = new detour(g_renderCommandTable[RB_DrawQuadPic_id_t]->address, RB_DrawQuadPic);
 }
 
 void renderables::stop()
 {
-	delete RB_DrawQuadPic_d;
+	//delete RB_DrawQuadPic_d;
 }

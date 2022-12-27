@@ -167,7 +167,7 @@ struct vector
 	// Constructors, destructor
 	inline vector() { Size = Capacity = 0; Data = NULL; }
 	inline vector(const vector<T>& src) { Size = Capacity = 0; Data = NULL; operator=(src); }
-	inline vector(const std::initializer_list<T>& src) { clear(); resize(src.size() - 1); if (src.begin()) memcpy(Data, src.begin(), (size_t)Size * sizeof(T); return *this; ) }
+	inline vector(const std::initializer_list<T>& src) { clear(); resize(src.size());if (src.begin()) memcpy(Data, src.begin(), (size_t)Size * sizeof(T)); }
 	inline vector<T>& operator=(const vector<T>& src) { clear(); resize(src.Size); if (src.Data) memcpy(Data, src.Data, (size_t)Size * sizeof(T)); return *this; }
 	inline ~vector() { if (Data) IM_FREE(Data); } // Important: does not destruct anything
 

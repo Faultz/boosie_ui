@@ -26,12 +26,12 @@ extern "C"
 {
 	int boosie_ui_entry(void)
 	{
-		globals::gameWhite = Material_RegisterHandle("white", 7);
-		globals::fontNormal = R_RegisterFont("fonts/bigFont", 7);
+		globals::gameWhite = Material_RegisterHandle("white", 7, false, -1);
+		globals::fontNormal = R_RegisterFont("fonts/720/normalFont", 7);
 		globals::clr_white = GColor(255, 255, 255, 255);
 		globals::globalAlpha = 0.f;
-		globals::game_snprintf = { 0x027E2F8 };
-		globals::game_vsnprintf = { 0x04AA890, TOC_2 };
+		globals::game_snprintf = { 0x084B090 };
+		globals::game_vsnprintf = { 0x0845C44 };
 
 		if (globals::resolution.width == 1280 && globals::resolution.height == 720)
 			ASPECT_RATIO = 0.0f;

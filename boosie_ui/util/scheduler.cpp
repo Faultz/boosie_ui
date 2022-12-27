@@ -75,12 +75,12 @@ detour* ScrPlace_EndFrame_d = nullptr;
 void scheduler::ScrPlace_EndFrame()
 {
 	scheduler::execute(scheduler::thread::render);
-	*(int*)(*(int*)0x723058 + 0x8) = 3;
+	ScrPlace_EndFrame_d->invoke();
 }
 
 void scheduler::start()
 {
-	ScrPlace_EndFrame_d = new detour(ScrPlace_EndFrame_t, ScrPlace_EndFrame);
+	ScrPlace_EndFrame_d = new detour(R_EndFrame_t, ScrPlace_EndFrame);
 }
 
 void scheduler::stop()

@@ -163,7 +163,7 @@ inline void RB_PathConvexPolyFill(int point_count, GfxPointVertex* verts, Materi
 	if (g_materialCommands == nullptr)
 		return;
 
-	R_SetTessMaterial(material, 4);
+	R_SetTessMaterial(material, 2, 8);
 
 	if (RB_CheckOverflow(point_count, (point_count - 2) * 3))
 		return;
@@ -192,7 +192,7 @@ inline void RB_AddPolyLine(int point_count, GfxPointVertex* verts, uint32_t colo
 	if (g_materialCommands == nullptr)
 		return;
 
-	R_SetTessMaterial(material, 4);
+	R_SetTessMaterial(material, 2, 8);
 
 	for (int i1 = 0; i1 < point_count; i1++)
 	{
@@ -223,8 +223,8 @@ inline void RB_AddPolyLine(int point_count, GfxPointVertex* verts, uint32_t colo
 		g_materialCommands->indexCount += 6;
 		g_materialCommands->vertexCount += 4;
 	}
-
-	RB_EndTessSurface();
+	if (*(int*)0x02F82E28 != 0)
+		RB_EndTessSurface();
 }
 inline void RB_AddQuad(vec2_t* positions, color* colors, bool is_multicolored, Material* material)
 {
@@ -245,7 +245,7 @@ inline void RB_AddQuad(vec2_t* positions, color* colors, bool is_multicolored, M
 
 	auto& draw_cmd = *g_materialCommands;
 
-	R_SetTessMaterial(material, 4);
+	R_SetTessMaterial(material, 2, 8);
 
 	if (RB_CheckOverflow(4, 6))
 		return;
@@ -271,8 +271,8 @@ inline void RB_AddQuad(vec2_t* positions, color* colors, bool is_multicolored, M
 		R_SetVertex4D(&draw_cmd.verts[draw_cmd.vertexCount + 2], positions[2].x, positions[2].y, 0.0, 0.0, 1.0, 1.0, col[2]);
 		R_SetVertex4D(&draw_cmd.verts[draw_cmd.vertexCount + 3], positions[3].x, positions[3].y, 0.0, 0.0, 0.0, 1.0, col[3]);
 	}
-
-	RB_TessOverflow();
+	if (*(int*)0x02F82E28 != 0)
+		RB_EndTessSurface();
 }
 
 inline void RB_PathArcTo(const vec3_t& centre, float radius, uint32_t clr, float a_min, float a_max, int num_segments)
@@ -494,12 +494,15 @@ void RB_AddText(const char* text, int maxChars, Font* font, float x, float y, fl
 {
 	float _r = (rotation * 0.017453292);
 
+	auto sine = sinf(_r);
+	auto cos = cosf(_r);
+
 	uint32_t col;
 	R_ConvertColor(clr, &col);
 	DrawText2D(text,
-	x, y,
+	x, y, 1.0f,
 	font, xScale, yScale,
-	_r, _r, col,
+	sine, cos, col,
 	maxChars, 0, -1,
 	0, 0.0, 0,
 	0, 0, 0,
