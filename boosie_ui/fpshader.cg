@@ -1,0 +1,18 @@
+/* SIE CONFIDENTIAL
+PhyreEngine(TM) Package 3.19.0.0
+* Copyright (C) 2017 Sony Interactive Entertainment Inc.
+* All Rights Reserved.
+*/
+
+// Empty
+
+struct fragment
+{
+	float4 position	: POSITION;
+	float4 color	: COLOR0;
+};
+
+float4 main(fragment IN) : COLOR
+{
+	return IN.color;
+}

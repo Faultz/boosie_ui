@@ -662,8 +662,8 @@ vec2_t menu::calc_next_scroll_and_clamp(menu_window* window)
 
 void menu::calc_content_size(menu_window* window, vec2_t* content_size, vec2_t* content_size_ideal)
 {
-	content_size->x = floorf(window->cursorMaxPos.x - window->cursorStartPos.x);
-	content_size->y = floorf(window->cursorMaxPos.y - window->cursorStartPos.y);
+	content_size->x = floorf(std::max(window->cursorMaxPos.x, window->contentSizeIdeal.x) - window->cursorStartPos.x);
+	content_size->y = floorf(std::max(window->cursorMaxPos.y, window->contentSizeIdeal.y) - window->cursorStartPos.y);
 }
 
 void menu::set_scroll_from_y(menu_window* window, float local_y, float center_y_ratio)
@@ -695,11 +695,11 @@ menu_window* menu::create_window(const char* label, int id)
 	auto* created_window = g.windowMap[id];
 
 	set_window_pos(created_window, 250, 100);
-	set_window_size(created_window, 450, 750);
+	set_window_size(created_window, 550, 750);
 
 	created_window->idStack.push_back(id);
 	
-	created_window->windowPadding = vec2_t(7.0f, 7.0f);
+	created_window->windowPadding = vec2_t(3.0f, 3.0f);
 	created_window->itemFlags = ITEM_FLAG_NONE;
 	created_window->globalFontScale = 0.5f;
 	created_window->globalFontScaleY = 0.5f;
@@ -755,7 +755,6 @@ void menu::new_frame()
 	{
 		menu_window& window = *g.currentWindow;
 
-		calc_content_size(&window, &window.contentSize, nullptr);
 		static analog_input_t analog;
 		read_analog_input(&analog);
 
@@ -836,9 +835,17 @@ void menu::begin(const char* label)
 	if (!window)
 		return;
 
+	calc_content_size(window, &window->contentSize, nullptr);
+
+	window->Size = window->sizeFull;
+
+	if (window->contentSize.x > window->sizeFull.x)
+		window->Size.x = window->maxWidth;
+	//else
+	//	window->Size.x = window->sizeFull.x;
 	GRect clip_rect(window->Pos.x, window->Pos.y + headerHeight, window->Size.x, window->Size.y - headerHeight);
 
-	window->indentSize = 0.0f + window->windowPadding.x;
+	window->Indent.x = 0.0f + window->windowPadding.x - window->scrollPos.x;
 
 	double start_pos_x = (double)window->Pos.x + window->windowPadding.x - (double)window->scrollPos.x;
 	double start_pos_y = (double)window->Pos.y + headerHeight + window->windowPadding.y - (double)window->scrollPos.y;
@@ -878,13 +885,6 @@ void menu::end()
 	menu_context& g = *gMenuCtx;
 	menu_window& window = *g.currentWindow;
 
-	if (window.contentSize.x > window.sizeFull.x)
-		window.Size.x = window.contentSize.x + 10.0f;
-	else
-		window.Size.x = window.sizeFull.x;
-	//window.cursorMaxPos.x = window.cursorPos.x;
-	window.cursorMaxPos.y += 50.0f;
-
 	//render::add_filled_rect(GRect(window.cursorMaxPos.x, window.cursorMaxPos.y, 300, 3), g.style.colors[COL_ITEM_BACKGROUND]);
 
 	render::pop_clip();
@@ -900,6 +900,8 @@ bool menu::begin_tab_bar(const char* name)
 	menu_window* window = g.currentWindow;
 	if (!window)
 		return false;
+
+	const float fontScale = window->globalFontScale;
 
 	auto current_tab = window->tabMap[id];
 	if (!current_tab)
@@ -924,7 +926,7 @@ bool menu::begin_tab_bar(const char* name)
 
 		auto tab_id = get_id(fmt_str("%s#tab_item", tab_item->name, i));
 
-		auto tab_name_width = render::get_text_width(tab_item->name, .5f) + 10;
+		auto tab_name_width = render::get_text_width(tab_item->name, fontScale) + 10;
 
 		GRect tab_name_rect(window->cursorPos.x, window->cursorPos.y, tab_name_width, rect.h);
 
@@ -945,7 +947,7 @@ bool menu::begin_tab_bar(const char* name)
 
 		render::add_filled_rect(tab_name_rect, current_tab->activeTabId == tab_id ? style.colors[COL_ITEM_ACTIVE] : style.colors[COL_ITEM_BACKGROUND], g.style.frameRounding, cornerFlags_Top);
 		if (active) render::add_rect(tab_name_rect, 1, style.colors[COL_ACTIVE]);
-		render::add_text(tab_item->name, tab_name_rect, 1, vert_center | horz_center, .5f, .5f * ASPECT_RATIO, style.colors[COL_TEXT]);
+		render::add_text(tab_item->name, tab_name_rect, 1, vert_center | horz_center, fontScale, fontScale * ASPECT_RATIO, style.colors[COL_TEXT]);
 	}
 
 	return true;
@@ -990,6 +992,119 @@ bool menu::begin_tab_item(const char* name)
 
 void menu::end_tab_item()
 {
+}
+
+bool menu::collapsing_header(const char* name)
+{
+	return tree_node(name, TREE_COLLAPSING_HEADER);
+}
+
+void menu::end_header()
+{
+	menu_window* window = get_current_window();
+
+	window->cursorPos.x = window->cursorStartPos.x;
+}
+
+bool menu::tree_node(const char* name, int flags)
+{
+	return tree_node_behaviour(name, flags);
+}
+
+void menu::pop_tree()
+{
+	menu_window* window = get_current_window();
+	if (window->headerStack.size())
+	{
+		auto top = window->headerStack.front();
+		if(!(top.flags & TREE_COLLAPSING_HEADER))
+			unindent();
+	}
+}
+
+bool menu::tree_node_behaviour(const char* name, int flags)
+{
+	menu_context& g = *gMenuCtx;
+	menu_window& window = *g.currentWindow;
+
+	auto id = get_id(name);
+	const bool is_open = is_header_open(id);
+
+	const int height = 10 * ASPECT_RATIO;
+	const float fontScale = window.globalFontScale;
+
+	const bool active = g.activeId == id;
+
+	vec2_t size = calc_item_size(vec2_t(), (window.innerClipRect.w - (window.windowPadding.x * 2.0f) - window.Indent.x), (height + 10 * (4 / 3)) + (g.style.framePadding.y * 2.0f));
+
+	GRect rect(window.cursorPos.x, window.cursorPos.y, size.x, size.y);
+	GRect text_rect(window.cursorPos.x + 5.0f, window.cursorPos.y, size.x, size.y);
+
+	item_size(size);
+	if (!item_add(rect, id))
+		return false;
+
+	if (flags & TREE_COLLAPSING_HEADER)
+		render::add_filled_rect(rect, is_open ? g.style.colors[COL_ITEM_SLIDE] : g.style.colors[COL_ITEM_BACKGROUND]);
+	if (active) render::add_rect(rect, 1, g.style.colors[COL_ACTIVE]);
+	render::add_text(name, text_rect, 1, vert_center | horz_left, fontScale, fontScale * ASPECT_RATIO, g.style.colors[COL_TEXT]);
+
+	if (is_open && !(flags & TREE_COLLAPSING_HEADER))
+		indent();
+	if (active)
+	{
+
+		if (g_nav.is_pressed(NAV_ACTIVATE))
+		{
+			if (is_open)
+				pop_header_id(id);
+			else
+				push_header(name);
+		}
+	}
+
+	return is_open;
+}
+
+bool menu::is_header_open(menu_id id)
+{
+	menu_window* window = get_current_window();
+	for (auto header : window->headerStack)
+		if (header.ID == id)
+			return true;
+
+	return false;
+}
+
+void menu::push_header(const char* name, int flags)
+{
+	menu_window* window = get_current_window();
+
+	menu_header header;
+	header.ID = get_id(name);
+	header.flags = flags;
+	header.Rect = GRect();
+
+	window->headerStack.push_back(header);
+}
+
+void menu::pop_header_id(menu_id id)
+{
+	menu_window* window = get_current_window();
+
+	for (int i = 0; i < window->headerStack.size(); i++)
+	{
+		if (window->headerStack[i].ID == id)
+		{
+			window->headerStack.erase(&window->headerStack[i]);
+		}
+	}
+}
+
+void menu::pop_header()
+{
+	menu_window* window = get_current_window();
+	window->headerStack.pop_back();
 }
 
 void menu::set_active_id(int id)
@@ -1055,7 +1170,7 @@ void menu::item_size(vec2_t size, float text_baseline_y)
 
 	window.cursorPosPrevLine.x = window.cursorPos.x + size.x;
 	window.cursorPosPrevLine.y = line_y1;
-	window.cursorPos.x = floorf(window.Pos.x + window.indentSize);
+	window.cursorPos.x = floorf(window.Pos.x + window.Indent.x);
 	window.cursorPos.y = floorf(line_y1 + line_height + g.style.itemSpacing.y);
 	window.cursorMaxPos.x = std::max(window.cursorMaxPos.x, window.cursorPosPrevLine.x);
 	window.cursorMaxPos.y = std::max(window.cursorMaxPos.y, window.cursorPos.y - g.style.itemSpacing.y);
@@ -1093,6 +1208,39 @@ void menu::same_line(float offset_from_start_x, float spacing_w)
 	window->currLineSize = window->prevLineSize;
 	window->currLineTextBaseOffset = window->prevLineTextBaseOffset;
 	window->isSameLine = true;
+}
+
+void menu::indent(float indent_w)
+{
+	menu_context& g = *gMenuCtx;
+	menu_window* window = get_current_window();
+
+	window->Indent.x += (indent_w != 0.0f) ? indent_w : g.style.indentSpacing;
+	window->cursorPos.x = window->Pos.x + window->Indent.x;
+}
+
+void menu::unindent(float indent_w)
+{
+	menu_context& g = *gMenuCtx;
+	menu_window* window = get_current_window();
+
+	window->Indent.x -= (indent_w != 0.0f) ? indent_w : g.style.indentSpacing;
+	window->cursorPos.x = window->Pos.x + window->Indent.x;
+}
+
+float menu::calc_item_dim(std::vector<std::string> data, float scale)
+{
+	float mscale_x = 0.0f;
+
+	for (std::string& str : data)
+	{
+		float scale_x = render::get_text_width(str.data(), scale);
+
+		if (scale_x > mscale_x)
+			mscale_x = scale_x;
+	}
+
+	return mscale_x != 0.0f ? mscale_x : 100.0f;
 }
 
 void menu::push_style_color(int idx, GColor color)
@@ -1244,7 +1392,7 @@ bool menu::button(const char* label, vec2_t b_size)
 
 	const bool active = g.activeId == id;
 
-	vec2_t size = b_size == vec2_t() ? calc_item_size(vec2_t(), render::get_text_width(label, fontScale) + 10 + (g.style.framePadding.x * 2.0f), height + 15 + (g.style.framePadding.y * 2.0f)) : b_size;
+	vec2_t size = b_size == vec2_t() ? calc_item_size(vec2_t(), render::get_text_width(label, fontScale) + 10 + (g.style.framePadding.x * 2.0f), height + 10 + (g.style.framePadding.y * 2.0f)) : b_size;
 
 	GRect rect(window.cursorPos.x, window.cursorPos.y, size.x, size.y);
 
@@ -1319,7 +1467,7 @@ void menu::text(const char* label, ...)
 
 	const int height = render::get_text_height(buffer, fontScale) * ASPECT_RATIO;
 
-	vec2_t size = vec2_t(render::get_text_width(buffer, fontScale) + 4.f, height + style.framePadding.y * 2.0f);
+	vec2_t size = vec2_t(render::get_text_width(buffer, fontScale), height + style.framePadding.y * 2.0f);
 
 	GRect rect(window.cursorPos.x, window.cursorPos.y, size.x, size.y);
 
@@ -1476,10 +1624,6 @@ bool menu::slider(const char* label, const char* fmt, T* values, int count, int 
 		GRect rect(window.cursorPos.x, window.cursorPos.y, size.x, size.y);
 		GRect rect_calc(window.cursorPos.x, window.cursorPos.y, ((((float)values[i] - (float)min) / ((float)max - (float)min)) * size.x), size.y);
 
-		item_size(vec2_t(size.x, size.y));
-		if (!item_add(rect, id))
-			return false;
-
 		if (active)
 		{
 			if (is_down(NAV_ACTIVATE, 1.f))
@@ -1489,6 +1633,10 @@ bool menu::slider(const char* label, const char* fmt, T* values, int count, int 
 			}
 			modified = slider_behaviour((void*)&values[i], data_type, fmt, (const void*)&min, (const void*)&max);
 		}
+
+		item_size(vec2_t(size.x, size.y));
+		if (!item_add(rect, id))
+			return false;
 
 		render::add_filled_rect(rect, style.colors[COL_ITEM_BACKGROUND], style.frameRounding, cornerFlags_all);
 		if (active) render::add_rect(rect, 1, style.colors[COL_TEXT]);
@@ -1643,7 +1791,7 @@ bool menu::slideru4(const char* label, int* values, int min, int max, vec2_t b_s
 	return edited;
 }
 
-bool menu::combo(const char* label, int* index, std::vector<std::string> data, vec2_t b_size)
+bool menu::combo(const char* label, int* index, std::vector<std::string> data, int flags)
 {
 	menu_context& g = *gMenuCtx;
 	menu_style& style = g.style;
@@ -1657,7 +1805,7 @@ bool menu::combo(const char* label, int* index, std::vector<std::string> data, v
 
 	const bool active = g.activeId == id;
 
-	vec2_t size = calc_item_size(vec2_t(), 360.f + (g.style.framePadding.x * 2.0f), (height + 10) + (g.style.framePadding.y * 2.0f));
+	vec2_t size = calc_item_size(flags & COMBO_FIT_TEXT ? vec2_t(calc_item_dim(data, fontScale) + (g.style.framePadding.x * 2.0f) + 10.0f, height + 10 + (g.style.framePadding.y * 2.0f)) : vec2_t(360.f + (g.style.framePadding.x * 2.0f), (height + 10) + (g.style.framePadding.y * 2.0f)));
 
 	GRect rect(window.cursorPos.x, window.cursorPos.y, size.x, size.y);
 	GRect text_rect(window.cursorPos.x + 5.f, window.cursorPos.y, size.x - 10.f, size.y);
@@ -1781,87 +1929,56 @@ void menu::update(void* arg)
 	menu_window& window = *get_current_window();
 
 	text("boosie ui by faultz :)");
-	text("g.isActive: %i", g.isActive); same_line(); 
-	push_style_color(COL_TEXT, GColor(255, 0, 0));
-	text("g.activeId: 0x%08X", g.activeId); same_line();
-	pop_style_color();
-	text("g.navRequest: %i", g.navRequest);
 
-	text("window.Pos(%.1f, %.1f)", window.Pos.x, window.Pos.y);
-	text("window.Size(%.1f, %.1f)", window.Size.x, window.Size.y);
-	text("g.style.framePadding(%.1f, %.1f)", style.framePadding.x, style.framePadding.y);
-	text("g.style.frameRounding(%.1f)", style.frameRounding);
-	text("g.style.itemSpacing(%.1f, %.1f)", style.itemSpacing.x, style.itemSpacing.y);
-	text("g.style.itemInnerSpacing(%.1f, %.1f)", style.itemInnerSpacing.x, style.itemInnerSpacing.y);
-
-	static int combo_test;
-	combo("combo", &combo_test, { "bonk", "fuck" });
-
-	sliderf("fontScale", &window.globalFontScale, 0.3f, 2.0f);
-
-	sliderf("frameRounding", &style.frameRounding, 0.0, 35.0f);
-	sliderf2("framePadding", style.framePadding, 0.0, 15.0f);
-	sliderf2("itemSpacing", style.itemSpacing, 0.0, 15.0f);
-	sliderf2("itemInnerSpacing", style.itemInnerSpacing, 0.0, 15.0f);
-
-	static float val3[2];
-	sliderf2("slider 3", val3, 0.0f, 1000.0f);
-
-	static int i_size;
-	slideru("label", &i_size, 0, 100);
-
-	static float val;
-	sliderf("slider 1", &val, 0.0f, 100.0f);
-
-	if (begin_tab_bar("settings#bar"))
+	if (collapsing_header("aimbot"))
 	{
-		if (begin_tab_item("settings"))
+		if (tree_node("main"))
 		{
-			sliderf4("Background color", style.colors[COL_BACKGROUND], 0.f, 1.f);
-			sliderf4("Item color", style.colors[COL_ITEM_BACKGROUND], 0.f, 1.f);
-			sliderf4("Active color", style.colors[COL_ACTIVE], 0.f, 1.f);
-			sliderf4("Active slider color", style.colors[COL_ITEM_SLIDE], 0.f, 1.f);
-			sliderf4("Text color", style.colors[COL_TEXT], 0.f, 1.f);
+			button("a button");
 
-			static bool v;
-			checkbox("new checkbox", &v);
-			same_line();
-			checkbox("new checkbox3", &v);
-
-			end_tab_item();
+			pop_tree();
 		}
-		if (begin_tab_item("new item 2"))
-		{
-			button("tab_item 2");
-
-			if (begin_tab_bar("tabs2"))
-			{
-				if (begin_tab_item("new item2"))
-				{
-					button("tab_item 12");
-					sliderf4("Color background2", style.colors[COL_BACKGROUND], 0.f, 1.f);
-
-					end_tab_item();
-				}
-				if (begin_tab_item("new item 22"))
-				{
-					button("tab_item 22");
-
-					end_tab_item();
-				}
-
-				end_tab_bar();
-			}
-
-			end_tab_item();
-		}
-
-		end_tab_bar();
 	}
 
-	static int count;
-	if (button(fmt_str("button outside of tab item #%i", count)))
-		count++;
+	if (collapsing_header("anti-aim"))
+	{
+
+	}
+	if (collapsing_header("visuals"))
+	{
+
+	}
+
+	if (collapsing_header("misc"))
+	{
+
+	}
+
+	if (collapsing_header("settings"))
+	{
+		text("g.isActive: %i", g.isActive); same_line();
+		push_style_color(COL_TEXT, GColor(255, 0, 0));
+		text("g.activeId: 0x%08X", g.activeId); same_line();
+		pop_style_color();
+		text("g.navRequest: %i", g.navRequest);
+
+		text("window.Pos(%.1f, %.1f)", window.Pos.x, window.Pos.y);
+		text("window.Size(%.1f, %.1f)", window.Size.x, window.Size.y);
+		text("g.style.framePadding(%.1f, %.1f)", style.framePadding.x, style.framePadding.y);
+		text("g.style.frameRounding(%.1f)", style.frameRounding);
+		text("g.style.itemSpacing(%.1f, %.1f)", style.itemSpacing.x, style.itemSpacing.y);
+		text("g.style.itemInnerSpacing(%.1f, %.1f)", style.itemInnerSpacing.x, style.itemInnerSpacing.y);
+
+		static int combo_test;
+		combo("combo", &combo_test, { "bonk", "fudddddddddck" }, COMBO_FIT_TEXT);
+
+		sliderf("fontScale", &window.globalFontScale, 0.3f, 2.0f);
+
+		sliderf("frameRounding", &style.frameRounding, 0.0, 35.0f);
+		sliderf2("framePadding", style.framePadding, 0.0, 15.0f);
+		sliderf2("itemSpacing", style.itemSpacing, 0.0, 15.0f);
+		sliderf2("itemInnerSpacing", style.itemInnerSpacing, 0.0, 15.0f);
+	}
 
 	end();
 

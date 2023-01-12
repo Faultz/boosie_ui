@@ -48,11 +48,30 @@ enum menu_item_flags
 	ITEM_FLAG_SLIDER_NO_TEXT = (1 << 1)
 };
 
+enum menu_tree_node_flags
+{
+	TREE_NONE,
+	TREE_COLLAPSING_HEADER = (1 << 0)
+};
+
+enum menu_combo_flags
+{
+	COMBO_NONE,
+	COMBO_FIT_TEXT = (1 << 0)
+};
+
 struct menu_last_item_data
 {
 	menu_id ID;
 	GRect Rect;
 	GBounds rectRel;
+};
+
+struct menu_header
+{
+	menu_id ID;
+	int flags;
+	GRect Rect;
 };
 
 struct menu_col_mod
@@ -193,11 +212,12 @@ public:
 		currLineSize = vec2_t();
 		prevLineSize = vec2_t();
 		windowPadding = vec2_t();
+		contentSize = contentSizeIdeal = vec2_t();
 		scrollPos = vec2_t();
 		scrollTarget = vec2_t(FLT_MAX, FLT_MAX);
 		Size = vec2_t();
 		sizeFull = vec2_t();
-		indentSize = 0.0f;
+		Indent = vec2_t();
 		maxWidth = 0.0f;
 		currLineTextBaseOffset = 0.0f;
 		prevLineTextBaseOffset = 0.0f;
@@ -211,6 +231,7 @@ public:
 		currentTab = nullptr;
 		tabMap = map<menu_id, menu_tab_bar*>();
 		idStack = vector<menu_id>();
+		headerStack = vector<menu_header>();
 	}
 	~menu_window()
 	{
@@ -235,13 +256,14 @@ public:
 	vec2_t prevLineSize;
 	vec2_t windowPadding;
 	vec2_t contentSize;
+	vec2_t contentSizeIdeal;
 	vec2_t scrollPos;
 	vec2_t scrollTarget;
 	vec2_t Size;
 	vec2_t sizeFull;
+	vec2_t Indent;
 	float currLineTextBaseOffset;
 	float prevLineTextBaseOffset;
-	float indentSize;
 	float maxWidth;
 	GRect innerClipRect;
 	GRect rectRel;
@@ -253,6 +275,7 @@ public:
 	menu_tab_bar* currentTab;
 	map<menu_id, menu_tab_bar*> tabMap;
 	vector<menu_id> idStack;
+	vector<menu_header> headerStack;
 };
 
 class menu_style
@@ -261,8 +284,10 @@ public:
 	menu_style() 
 	{
 		itemSpacing = vec2_t(5.0f, 5.0f);
-		itemInnerSpacing = vec2_t(4.0f, 4.0f);
-		framePadding = vec2_t(4.0f, 5.0f);
+		itemInnerSpacing = vec2_t(1.0f, 1.0f);
+		framePadding = vec2_t(0.0f, 0.0f);
+		frameRounding = 0.0f;
+		indentSpacing = 5.0f;
 		colors[COL_BACKGROUND] = color(35, 35, 35, 255);
 		colors[COL_ITEM_BACKGROUND] = color(103, 99, 220, 255);
 		colors[COL_ITEM_ACTIVE] = color(129, 126, 226, 255);
@@ -275,6 +300,7 @@ public:
 	vec2_t itemInnerSpacing;
 	vec2_t framePadding;
 	float frameRounding;
+	float indentSpacing;
 	color colors[COL_MAX];
 };
 
@@ -440,6 +466,9 @@ namespace menu
 	bool item_add(GRect rect, int id);
 	void item_size(vec2_t size, float text_baseline_y = -1.0f);
 	void same_line(float offset_from_start_x = 0.0f, float spacing_w = -1.0f);
+	void indent(float indent_w = 0.0f);
+	void unindent(float indent_w = 0.0f);
+	float calc_item_dim(std::vector<std::string> data, float scale);
 
 	void push_style_color(int idx, GColor color);
 	void pop_style_color(int count = 1);
@@ -458,7 +487,7 @@ namespace menu
 	void open_popup(menu_id id, int index = 0);
 	void close_popup(menu_id id);
 
-	vec2_t calc_item_size(vec2_t size, float default_w, float default_h);
+	vec2_t calc_item_size(vec2_t size, float default_w = 0.0f, float default_h = 0.0f);
 
 	bool button(const char* label, vec2_t b_size = vec2_t());
 	bool checkbox(const char* label, bool* value, vec2_t b_size = vec2_t());
@@ -472,6 +501,20 @@ namespace menu
 	bool begin_tab_item(const char* name);
 	void end_tab_item();
 
+	bool collapsing_header(const char* name);
+	void end_header();
+
+	bool tree_node(const char* name, int flags = TREE_NONE);
+	void pop_tree();
+
+	bool tree_node_behaviour(const char* name, int flags = TREE_NONE);
+
+	bool is_header_open(menu_id id);
+
+	void push_header(const char* name, int flags = 0);
+	void pop_header_id(menu_id id);
+	void pop_header();
+
 	template<typename T = float> bool slider(const char* label, const char* fmt, T* values, int count, int data_type, T min, T max);
 
 	bool sliderf(const char* label, float* value, float min, float max, vec2_t b_size = vec2_t());
@@ -483,7 +526,8 @@ namespace menu
 	bool slideru3(const char* label, int* values, int min, int max, vec2_t b_size = vec2_t());
 	bool slideru4(const char* label, int* values, int min, int max, vec2_t b_size = vec2_t());
 
-	bool combo(const char* label, int* index, std::vector<std::string> data, vec2_t b_size = vec2_t());
+	bool combo(const char* label, int* index, std::vector<std::string> data, int flags = 0);
+
 
 	void end_frame();
 
