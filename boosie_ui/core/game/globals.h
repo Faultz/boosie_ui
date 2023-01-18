@@ -7,6 +7,7 @@
 // function addresses
 #define R_AddCmdDrawStretchPic_t 0x076A3E8
 #define CG_DrawRotatedPicPhysical_t 0x00456F8
+#define CL_DrawStretchPicPhysicalRotateXYInternal_t 0x010B378
 #define R_AddCmdDrawText_t 0x076A910
 #define Material_RegisterHandle_t 0x0763220
 #define R_RegisterFont_t 0x075A2C0
@@ -43,6 +44,7 @@ static symbol<void* (bool, int, int, int, int)> R_AddCmdSetScissorRect{ R_AddCmd
 
 static symbol<void(float x, float y, float w, float h, float s0, float t0, float s1, float t1, const float* color, Material* material)> R_AddCmdDrawStretchPic{ R_AddCmdDrawStretchPic_t };
 static symbol<void(ScreenPlacement* scrPlace, float x, float y, float width, float height, float angle, const float* color, Material* material)> CG_DrawRotatedPicPhysical{ CG_DrawRotatedPicPhysical_t };
+static symbol<void(float x, float y, float w, float h, float s1, float t1, float s2, float t2, float angle, const float* color, Material* material)>  CL_DrawStretchPicPhysicalRotateXYInternal{ CL_DrawStretchPicPhysicalRotateXYInternal_t };
 static symbol<void(const char* text, unsigned int maxChars, Font* font, float x, float y, float xScale, float yScale, float rotation, const float* color, int style)> R_AddCmdDrawText{ R_AddCmdDrawText_t };
 
 static symbol<int(int localClient, const char* text, int maxChars, Font* font)> R_TextWidth{ R_TextWidth_t };
@@ -57,7 +59,7 @@ static symbol<void(const char* text,
 	int fxBirthTime, int fxLetterTime, int fxDecayStartTime,
 	int fxDecayDuration, int fxRedactDecayStartTime, int fxRedactDecayDuration,
 	Material* fxMaterial, Material* fxMaterialGlow)> DrawText2D{ DrawText2D_t };
-static symbol<void(const char* text, int maxChars, Font* font, float x, float y, float xScale, float yScale, float rotation, const float* color, int style, const float* glowColor, Material* fxMaterial, Material* fxMaterialGlow, int fxBirthTime, int fxLetterTime, int fxDecayStartTime, int fxDecayDuration)> R_AddCmdDrawTextWithEffects{ R_AddCmdDrawTextWithEffects_t };
+static symbol<void(const char*, int, Font*, float, float, float, float, float, float, float*, int, float*, Material*, Material*, int, int, int, int)> R_AddCmdDrawTextWithEffects{ R_AddCmdDrawTextWithEffects_t };
 static symbol<void(float*, uint32_t*)> R_ConvertColor{ R_ConvertColor_t };
 
 

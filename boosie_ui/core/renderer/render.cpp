@@ -49,11 +49,11 @@ void render::add_text(const char* text, GRect rect, int style, int align, float 
 		GRect back_rect(m_iAdjustedX - 2, m_iAdjustedY - textHeight - 2, textWidth + 4, textHeight + 4);
 
 		add_rect(back_rect, 1, GColor(255, 255, 255, 255), 0.0f, 0);
-		add_filled_rect(back_rect, GColor(35, 35, 35), 0.0f, 0);
+		add_filled_rect(back_rect, GColor(35, 35, 35));
 	}
 
 	//RB_AddText(text, 0x7F, globals::fontNormal, m_iAdjustedX, m_iAdjustedY, xScale, yScale, 0.0f, clr, style);
-	R_AddCmdDrawText(text, 0x7F, globals::fontNormal, m_iAdjustedX, m_iAdjustedY, xScale, yScale, 0.0f, clr, style);
+	R_AddCmdDrawText(text, 0x7F, globals::fontNormal, m_iAdjustedX, m_iAdjustedY, xScale, yScale, 0.0f, clr, 6);
 }
 
 void render::add_text_with_effect(const char* text, GRect rect, int style, int align, float xScale, float yScale, float* clr, float* glow_clr)
@@ -72,7 +72,7 @@ void render::add_text_with_effect(const char* text, GRect rect, int style, int a
 
 	//R_AddCmdDrawText(text, 0x7F, globals::fontNormal, m_iAdjustedX, m_iAdjustedY, xScale, yScale, 0.0f, clr, style);
 
-	R_AddCmdDrawTextWithEffects(text, 0x7F, globals::fontNormal, m_iAdjustedX, m_iAdjustedY, xScale, yScale, 0.0f, clr, style, glow_clr, nullptr, nullptr, 0, 0, 0, 0);
+	R_AddCmdDrawTextWithEffects(text, 0x7F, globals::fontNormal, m_iAdjustedX, m_iAdjustedY, 1.0f, xScale, yScale, 0.0f, clr, style, glow_clr, nullptr, nullptr, 0, 0, 0, 0);
 }
 
 void render::add_outline_rect(float x, float y, float width, float height, float* color, float thickness)
@@ -118,10 +118,10 @@ void render::add_filled_rect(float x, float y, float w, float h, float* clr, flo
 	//RB_AddRectFilled(x, y, w, h, clr, rounding, flags);
 	R_AddCmdDrawStretchPic(x, y, w, h, 0, 0, 1, 1, clr, globals::gameWhite);
 }
-void render::add_filled_rect(GRect rect, float* clr, float rounding, int flags)
+void render::add_filled_rect(GRect rect, float* clr, Material* override_material, float rotation)
 {
 	//RB_AddRectFilled(rect.x, rect.y, rect.w, rect.h, clr, rounding, flags);
-	R_AddCmdDrawStretchPic(rect.x, rect.y, rect.w, rect.h, 0, 0, 1, 1, clr, globals::gameWhite);
+	CL_DrawStretchPicPhysicalRotateXYInternal(rect.x, rect.y, rect.w, rect.h, 0, 0, 1, 1, rotation, clr, override_material ? override_material : globals::gameWhite);
 }
 
 void render::add_filled_rect_multi(GRect rect, color clr1, color clr2, color clr3, color clr4)

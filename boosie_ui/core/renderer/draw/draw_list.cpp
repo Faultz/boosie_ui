@@ -51,7 +51,7 @@ void draw_list::render()
 				render::add_text(element.text.c_str(), element.rect, 1, element.align, element.scaleX, element.scaleY, element.color);
 				break;
 		}
+		elements.clear();
 	}
 
-	elements.clear();
 }

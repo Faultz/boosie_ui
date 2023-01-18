@@ -287,7 +287,7 @@ public:
 		itemInnerSpacing = vec2_t(1.0f, 1.0f);
 		framePadding = vec2_t(0.0f, 0.0f);
 		frameRounding = 0.0f;
-		indentSpacing = 5.0f;
+		indentSpacing = 15.0f;
 		colors[COL_BACKGROUND] = color(35, 35, 35, 255);
 		colors[COL_ITEM_BACKGROUND] = color(103, 99, 220, 255);
 		colors[COL_ITEM_ACTIVE] = color(129, 126, 226, 255);
@@ -492,6 +492,7 @@ namespace menu
 	bool button(const char* label, vec2_t b_size = vec2_t());
 	bool checkbox(const char* label, bool* value, vec2_t b_size = vec2_t());
 	void text(const char* label, ...);
+	void seperator();
 
 	bool slider_behaviour(void* value, int data_type, const char* format, const void* min, const void* max);
 
@@ -501,13 +502,13 @@ namespace menu
 	bool begin_tab_item(const char* name);
 	void end_tab_item();
 
-	bool collapsing_header(const char* name);
+	bool collapsing_header(const char* name, vec2_t size = vec2_t(0, 0));
 	void end_header();
 
-	bool tree_node(const char* name, int flags = TREE_NONE);
+	bool tree_node(const char* name, int flags = TREE_NONE, vec2_t size = vec2_t(0, 0));
 	void pop_tree();
 
-	bool tree_node_behaviour(const char* name, int flags = TREE_NONE);
+	bool tree_node_behaviour(const char* name, int flags = TREE_NONE, vec2_t size = vec2_t(0, 0));
 
 	bool is_header_open(menu_id id);
 

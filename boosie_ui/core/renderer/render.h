@@ -90,6 +90,29 @@ enum text_flags
 	align_max = 69420
 };
 
+enum TEXT_RENDERFLAGS_T
+{
+	TEXT_RENDERFLAG_FORCEMONOSPACE = 0x1,
+	TEXT_RENDERFLAG_CURSOR = 0x2,
+	TEXT_RENDERFLAG_DROPSHADOW = 0x4,
+	TEXT_RENDERFLAG_DROPSHADOW_EXTRA = 0x8,
+	TEXT_RENDERFLAG_GLOW = 0x10,
+	TEXT_RENDERFLAG_GLOW_FORCE_COLOR = 0x20,
+	TEXT_RENDERFLAG_FX_DECODE = 0x40,
+	TEXT_RENDERFLAG_PADDING = 0x80,
+	TEXT_RENDERFLAG_SUBTITLETEXT = 0x100,
+	TEXT_RENDERFLAG_CINEMATIC = 0x200,
+	TEXT_RENDERFLAG_TYPEWRITER = 0x400,
+	TEXT_RENDERFLAG_FADEIN = 0x800,
+	TEXT_RENDERFLAG_COD7_TYPEWRITER = 0x1000,
+	TEXT_RENDERFLAG_POP_IN_WRITE = 0x2000,
+	TEXT_RENDERFLAG_REDACT = 0x4000,
+	TEXT_RENDERFLAG_JITTERSCALE = 0x8000,
+	TEXT_RENDERFLAG_COD7_DECODE = 0x800,
+	TEXT_RENDERFLAG_AUTOWRAP = 0x20000,
+};
+
+
 namespace render
 {
 	void align_text(int alignment, GRect rect, float w, float h, float* x, float* y);
@@ -109,7 +132,7 @@ namespace render
 	void add_filled_rect(vec2_t pos, vec2_t size, float* clr = color(), float rounding = 0.0f, int flags = 0);
 
 	void add_rect(GRect rect, float thickness = 1.f, float* clr = c_white, float rounding = 0.0f, int flags = 0);
-	void add_filled_rect(GRect rect, float* clr = c_white, float rounding = 0.0f, int flags = 0);
+	void add_filled_rect(GRect rect, float* clr = c_white, Material* override_material = nullptr, float rotation = 0.0f);
 
 	void add_filled_rect_multi(GRect rect, color clr1, color clr2, color clr3, color clr4);
 	void add_filled_rect_multi(GRect rect, float s0, float t0, float s1, float t1, color clr1, color clr2, color clr3, color clr4);

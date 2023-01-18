@@ -701,8 +701,8 @@ menu_window* menu::create_window(const char* label, int id)
 	
 	created_window->windowPadding = vec2_t(3.0f, 3.0f);
 	created_window->itemFlags = ITEM_FLAG_NONE;
-	created_window->globalFontScale = 0.5f;
-	created_window->globalFontScaleY = 0.5f;
+	created_window->globalFontScale = 0.4f;
+	created_window->globalFontScaleY = 0.4f;
 
 	return created_window;
 }
@@ -872,9 +872,9 @@ void menu::begin(const char* label)
 
 	g.currentWindow = window;
 
-	render::add_filled_rect(window->innerClipRect, style.colors[COL_BACKGROUND], style.frameRounding, cornerFlags_Bot);
+	render::add_filled_rect(window->innerClipRect, style.colors[COL_BACKGROUND]);
 
-	render::add_filled_rect(header_rect, style.colors[COL_ITEM_BACKGROUND], style.frameRounding, cornerFlags_Top);
+	render::add_filled_rect(header_rect, style.colors[COL_ITEM_BACKGROUND]);
 	render::add_text(label, headertext_rect, 1, vert_center | horz_left, .5f, .5f * ASPECT_RATIO, style.colors[COL_TEXT]);
 
 	render::push_clip(clip_rect);
@@ -945,7 +945,7 @@ bool menu::begin_tab_bar(const char* name)
 			current_tab->currentTabItem = tab_item;
 		}
 
-		render::add_filled_rect(tab_name_rect, current_tab->activeTabId == tab_id ? style.colors[COL_ITEM_ACTIVE] : style.colors[COL_ITEM_BACKGROUND], g.style.frameRounding, cornerFlags_Top);
+		render::add_filled_rect(tab_name_rect, current_tab->activeTabId == tab_id ? style.colors[COL_ITEM_ACTIVE] : style.colors[COL_ITEM_BACKGROUND]);
 		if (active) render::add_rect(tab_name_rect, 1, style.colors[COL_ACTIVE]);
 		render::add_text(tab_item->name, tab_name_rect, 1, vert_center | horz_center, fontScale, fontScale * ASPECT_RATIO, style.colors[COL_TEXT]);
 	}
@@ -994,9 +994,9 @@ void menu::end_tab_item()
 {
 }
 
-bool menu::collapsing_header(const char* name)
+bool menu::collapsing_header(const char* name, vec2_t size)
 {
-	return tree_node(name, TREE_COLLAPSING_HEADER);
+	return tree_node(name, TREE_COLLAPSING_HEADER, size);
 }
 
 void menu::end_header()
@@ -1006,9 +1006,9 @@ void menu::end_header()
 	window->cursorPos.x = window->cursorStartPos.x;
 }
 
-bool menu::tree_node(const char* name, int flags)
+bool menu::tree_node(const char* name, int flags, vec2_t size)
 {
-	return tree_node_behaviour(name, flags);
+	return tree_node_behaviour(name, flags, size);
 }
 
 void menu::pop_tree()
@@ -1022,7 +1022,7 @@ void menu::pop_tree()
 	}
 }
 
-bool menu::tree_node_behaviour(const char* name, int flags)
+bool menu::tree_node_behaviour(const char* name, int flags, vec2_t size)
 {
 	menu_context& g = *gMenuCtx;
 	menu_window& window = *g.currentWindow;
@@ -1035,18 +1035,24 @@ bool menu::tree_node_behaviour(const char* name, int flags)
 
 	const bool active = g.activeId == id;
 
-	vec2_t size = calc_item_size(vec2_t(), (window.innerClipRect.w - (window.windowPadding.x * 2.0f) - window.Indent.x), (height + 10 * (4 / 3)) + (g.style.framePadding.y * 2.0f));
+	const vec2_t default_size = vec2_t(window.innerClipRect.w - (window.windowPadding.x * 2.0f) - window.Indent.x, (height + 10 * (4 / 3)) + (g.style.framePadding.y * 2.0f));
 
-	GRect rect(window.cursorPos.x, window.cursorPos.y, size.x, size.y);
-	GRect text_rect(window.cursorPos.x + 5.0f, window.cursorPos.y, size.x, size.y);
+	vec2_t csize = calc_item_size(size != vec2_t() ? size : default_size);
 
-	item_size(size);
+	GRect rect(window.cursorPos.x, window.cursorPos.y, csize.x, csize.y);
+	GRect text_rect(window.cursorPos.x + 5.0f, window.cursorPos.y, csize.x, csize.y);
+	GRect arrow_rect(rect.x + (rect.w - 15.0f), rect.y + 5.0f, 10.0f, rect.h - 10.0f);
+
+	item_size(csize);
 	if (!item_add(rect, id))
 		return false;
 
 	if (flags & TREE_COLLAPSING_HEADER)
 		render::add_filled_rect(rect, is_open ? g.style.colors[COL_ITEM_SLIDE] : g.style.colors[COL_ITEM_BACKGROUND]);
-	if (active) render::add_rect(rect, 1, g.style.colors[COL_ACTIVE]);
+
+	render::add_filled_rect(arrow_rect, g.style.colors[COL_TEXT], Material_RegisterHandle("ui_scrollbar_arrow_up_a", 7, false, -1), is_open ? 180 : 90);
+
+	if (active) overlay_drawlist->add_rect(rect, 1, g.style.colors[COL_ACTIVE]);
 	render::add_text(name, text_rect, 1, vert_center | horz_left, fontScale, fontScale * ASPECT_RATIO, g.style.colors[COL_TEXT]);
 
 	if (is_open && !(flags & TREE_COLLAPSING_HEADER))
@@ -1400,7 +1406,7 @@ bool menu::button(const char* label, vec2_t b_size)
 	if (!item_add(rect, id))
 		return false;
 
-	render::add_filled_rect(rect, style.colors[COL_ITEM_BACKGROUND], style.frameRounding, cornerFlags_all);
+	render::add_filled_rect(rect, style.colors[COL_ITEM_BACKGROUND]);
 	if (active) render::add_rect(rect, 1, style.colors[COL_ACTIVE]);
 	render::add_text(label, rect, 1, vert_center | horz_center, fontScale, fontScale * ASPECT_RATIO, style.colors[COL_TEXT]);
 
@@ -1435,8 +1441,8 @@ bool menu::checkbox(const char* label, bool* value, vec2_t b_size)
 	if (!item_add(rect, id))
 		return false;
 
-	render::add_filled_rect(rect, *value ? style.colors[COL_ITEM_SLIDE] : style.colors[COL_ITEM_BACKGROUND], style.frameRounding, cornerFlags_all);
-	if(active) render::add_rect(rect, 1, style.colors[COL_ACTIVE]);
+	render::add_filled_rect(rect, *value ? style.colors[COL_ITEM_SLIDE] : style.colors[COL_ITEM_BACKGROUND]);
+	if(active) overlay_drawlist->add_rect(rect, 1, style.colors[COL_ACTIVE]);
 	render::add_text(label, text_rect, 1, vert_center | horz_left, fontScale, fontScale * ASPECT_RATIO, style.colors[COL_TEXT]);
 
 	if (active)
@@ -1454,7 +1460,6 @@ void menu::text(const char* label, ...)
 	menu_context& g = *gMenuCtx;
 	menu_style& style = g.style;
 	menu_window& window = *g.currentWindow;
-
 	const float fontScale = window.globalFontScale;
 
 	auto id = get_id(label);
@@ -1475,7 +1480,7 @@ void menu::text(const char* label, ...)
 	if(!item_add(rect, 0))
 		return;
 
-	render::add_text(buffer, rect, 1, vert_center | horz_left, fontScale, fontScale * ASPECT_RATIO, style.colors[COL_TEXT]);
+	render::add_text(buffer, rect, TEXT_RENDERFLAG_PADDING | TEXT_RENDERFLAG_DROPSHADOW, vert_center | horz_left, fontScale, fontScale * ASPECT_RATIO, style.colors[COL_TEXT]);
 }
 
 
@@ -1638,10 +1643,10 @@ bool menu::slider(const char* label, const char* fmt, T* values, int count, int 
 		if (!item_add(rect, id))
 			return false;
 
-		render::add_filled_rect(rect, style.colors[COL_ITEM_BACKGROUND], style.frameRounding, cornerFlags_all);
-		if (active) render::add_rect(rect, 1, style.colors[COL_TEXT]);
+		render::add_filled_rect(rect, style.colors[COL_ITEM_BACKGROUND]);
+		if (active) overlay_drawlist->add_rect(rect, 1, style.colors[COL_TEXT]);
 		if (values[i] != min)
-			render::add_filled_rect(rect_calc, style.colors[COL_ITEM_SLIDE], style.frameRounding, cornerFlags_all);
+			render::add_filled_rect(rect_calc, style.colors[COL_ITEM_SLIDE]);
 		render::add_text(str, rect, 1, vert_center | horz_center, fontScale, fontScale * ASPECT_RATIO, style.colors[COL_TEXT]);
 	}
 
@@ -1814,7 +1819,7 @@ bool menu::combo(const char* label, int* index, std::vector<std::string> data, i
 	if (!item_add(rect, id))
 		return false;
 
-	render::add_filled_rect(rect, style.colors[COL_ITEM_BACKGROUND], style.frameRounding, cornerFlags_all);
+	render::add_filled_rect(rect, style.colors[COL_ITEM_BACKGROUND]);
 	render::add_text(data[*index].data(), text_rect, 1, vert_center | horz_left, fontScale, fontScale * ASPECT_RATIO, style.colors[COL_TEXT]);
 
 	same_line();
@@ -1878,6 +1883,7 @@ bool menu::combo(const char* label, int* index, std::vector<std::string> data, i
 			}
 		}
 	}
+	if (active) overlay_drawlist->add_rect(rect, 1, style.colors[COL_ACTIVE]);
 
 	return modified;
 }
@@ -1934,8 +1940,12 @@ void menu::update(void* arg)
 	{
 		if (tree_node("main"))
 		{
-			button("a button");
-
+			if (tree_node("tree"))
+			{
+				text("text"); same_line();
+				text("ddd");
+				pop_tree();
+			}
 			pop_tree();
 		}
 	}
@@ -1980,32 +1990,6 @@ void menu::update(void* arg)
 		sliderf2("itemInnerSpacing", style.itemInnerSpacing, 0.0, 15.0f);
 	}
 
-	end();
-
-	//begin("hex memory");
-	//set_window_pos(g.currentWindow, 100, 100);
-	//set_window_size(g.currentWindow, 300, 400);
-
-	//text("very early test version");
-
-	//int index = 0;
-	//char value = 0;
-	//menu_list_clipper clipper;
-	//clipper.begin(10);         // We have 1000 elements, evenly spaced.
-	//while (clipper.step())
-	//{
-	//	for (int i = clipper.displayStart; i < clipper.displayEnd; i++)
-	//	{
-	//		char vb[16];
-	//		libpsutil::memory::get(0x10040000 + index, &vb, 1);
-
-	//		text("0x%08X: %*s", 0x10040000 + index, 16, "");
-	//		index++;
-	//	}
-	//}
-
-	//end();
-
 	end_frame();
 }
 
@@ -2013,12 +1997,6 @@ void menu::start()
 {
 	g_materialCommands = reinterpret_cast<materialCommands_t*>(materialCommands_a);
 	g_materialCommands->indexCount = g_materialCommands->indexCount;
-
-	for (int i = 0; i < 12; i++)
-	{
-		const float a = ((float)i * 2 * M_PI) / (float)12;
-		circle_vtx_fast[i] = vec2_t(cosf(a), sinf(a));
-	}
 
 	create_context();
 
